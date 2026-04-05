@@ -1,30 +1,26 @@
 """
-Model Regresyjny przepowiadający ilość godzin snów przespanych
+Regression model predicting hours of sleep based on factors such as: stress levels, screentime, age etc.
 """
+
+# === LIBRARIES
 import pandas as pd
 import numpy as np
 
-# ustawienie widoku kolumn dla lepszego podglądu
 pd.set_option('display.max_columns', None)
 
-# =======================================================
-# ===== POBIERANIE DANYCH
+# === PREPARING DATA
 data = pd.read_csv("digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
-
-# Przerabianie danych gender i locational_type na (0,1) (False/True) w osobnych kolumnach by model je nie odbierał rangowo i żeby nie wpływało to na wagi
 data = data.drop('user_id', axis=1)
 data = pd.get_dummies(data, columns=['gender', 'location_type'])
 data = data.astype(float)
 
-# Create 'Smarter' features
 data['stress_phone_interaction'] = data['stress_level'] * data['phone_usage_hours']
 data['total_digital_load'] = data['phone_usage_hours'] + data['laptop_usage_hours'] + data['gaming_hours']
 
 real_data = data.copy()
 
-# Scaling, by każda kolumna byla z skali (0-1)
 data = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0))
 
 # TARGET
@@ -34,36 +30,37 @@ X = data.drop(columns='sleep_duration_hours').values
 
 rows, cols = X.shape
 
-# input layers: (28-1) = 27 columns
-# learning data: 2000 rows
-# hidden layers: 128
-# output layers: hours of sleep predicted - 1 layer
-
-# =======================================================
-# ===== NEURAL NETWORK The Prologue
+# === NEURAL NETWORK
 class Sleep_Prediction:
-    # Initialize the model
+    """
+    A primitive neural network written from scratch
+    Parameters:
+        input layers: 28 (all) - 1 (what we want to predict) = 27 columns
+        learning data: 2000 rows
+        hidden layers: 128
+        output layers: hours of sleep predicted - 1 layer
+    """
+
     def __init__(self):
         self.input = cols
         self.output = 1
         self.hidden_units = 128
 
-        # Initialize matrix of weights
-        self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)  #27*128 matrix
-        self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)   #128*64 matrix
-        self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )                       #64*1 matrix
+        # Weights
+        self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
+        self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)
+        self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )
 
         # Velocity
         self.v1 = np.zeros_like(self.w1)
         self.v2 = np.zeros_like(self.w2)
         self.v3 = np.zeros_like(self.w3)
 
-        # Biases - initialized to 0
+        # Biases
         self.b1 = np.zeros((self.hidden_units, 1))
         self.b2 = np.zeros((64, 1))
         self.b3 = np.zeros((self.output, 1))
 
-    # Foward move from input layer through hidden layers, multiplying neuron by weight
     def _forward_propagation(self, X):
         self.z2 = np.dot(self.w1.T, X.T) + self.b1
         self.a2 = self.ReLU(self.z2)
@@ -76,9 +73,7 @@ class Sleep_Prediction:
 
         return self.a4
 
-    # Rectified Linear Unit
     def ReLU(self, Z):
-        #return np.maximum(Z, 0)
         return np.where(Z > 0, Z, Z * 0.01)  # Leaky ReLU
 
     def _loss(self, predict, y):
@@ -91,9 +86,9 @@ class Sleep_Prediction:
         rows = X.shape[0]
         lambda_param = 0.001
 
-        dz4 = predict - y.T # Shape: (1, rows)
+        dz4 = predict - y.T
 
-        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T) + (lambda_param * self.w3) # Shape: (64, 1)
+        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T) + (lambda_param * self.w3)
         delta3 = np.dot(self.w3, dz4)
         self.db3 = (1/rows) * np.sum(dz4, axis=1, keepdims=True)
         dz3 = delta3 * self.ReLU_prime(self.z3)
@@ -108,7 +103,6 @@ class Sleep_Prediction:
         self.db1 = (1 / rows) * np.sum(dz2, axis=1, keepdims=True)
 
     def ReLU_prime(self, z):
-        #return (z>0).astype(float)
         return np.where(z > 0, 1, 0.01) # Leaky ReLu
 
     def _update(self, learning_rate=0.01):
@@ -160,6 +154,7 @@ class Sleep_Prediction:
     def score(self, predict, y):
         return np.mean(np.abs(predict - y))
 
+# === TRAINING THE MODEL
 def train():
     X_train = X[:1600]
     X_test = X[1600:]
@@ -167,33 +162,27 @@ def train():
     y_train = y[:1600]
     y_test = y[1600:]
 
-    clr = Sleep_Prediction()  # initialize the model
+    clr = Sleep_Prediction()
 
-    clr.train(X_train, y_train/10, X_test, y_test/10)  # train model
-    pre_y = clr.predict(X_test)  # predict
-    score = clr.score(pre_y, y_test)  # get the accuracy score
+    clr.train(X_train, y_train/10, X_test, y_test/10)
+    pre_y = clr.predict(X_test)
+    score = clr.score(pre_y, y_test)
 
     print('=== SCORE: ', score)
 
 
     def show_comparison(model, X_test, y_test):
-        # Get predictions (which are already multiplied by 10 in your predict function)
         predictions = model.predict(X_test)
-
-        # Create a comparison table
         comparison = pd.DataFrame({
-            'Actual Hours': y_test.flatten(),
+            'Actual Hours': y_test.flatten().round(2),
             'Predicted Hours': predictions.flatten().round(2)
         })
-
-        # Calculate the Error for each row
         comparison['Error (Minutes)'] = (np.abs(comparison['Actual Hours'] - comparison['Predicted Hours']) * 60).round(
             0)
 
-        print("\n=== ACTUAL VS PREDICTED (First 10 Rows) ===")
-        print(comparison.head(10))
+        print("\n=== ACTUAL VS PREDICTED ===")
+        print(comparison.head(10)*10)
 
-        # Summary Statistics
         print(f"\nAverage Error: {comparison['Error (Minutes)'].mean():.1f} minutes")
 
     show_comparison(clr, X_test, y_test)
@@ -202,8 +191,7 @@ def train():
 
 clr = train()
 
-
-# TESTOWANIE MODELU
+# TESTING THE MODEL
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -218,32 +206,22 @@ user_balanced,35,Male,5.0,2.5,2.0,0.5,0.0,1.5,3.0,0.5,0.0,7.5,8,7,3,5.0,Suburban
 
 new_samples = pd.read_csv(io.StringIO(csv_data))
 
-
-def predict_new_users(model, new_data, original_df_pre_scaling):
-    # 1. Convert categories to dummies
+def predict_new_users(model, new_data, original_df):
     new_data = pd.get_dummies(new_data, columns=['gender', 'location_type'], dtype=float)
 
-    # 2. Add the custom interaction features
     new_data['stress_phone_interaction'] = new_data['stress_level'] * new_data['phone_usage_hours']
     new_data['total_digital_load'] = new_data['phone_usage_hours'] + new_data['laptop_usage_hours'] + new_data[
         'gaming_hours']
 
-    # 3. CRITICAL: Identify feature columns from training
-    # Use the original DataFrame columns (minus the target)
-    train_cols = [c for c in original_df_pre_scaling.columns if c != 'sleep_duration_hours']
+    train_cols = [c for c in original_df.columns if c != 'sleep_duration_hours']
 
-    # 4. Reindex to ensure order and presence of all 29+ columns
     new_data = new_data.reindex(columns=train_cols, fill_value=0)
 
-    # 5. SCALE using TRAINING DATA limits, not new_data limits!
-    # This prevents the "Explosion"
-    t_min = original_df_pre_scaling[train_cols].min()
-    t_max = original_df_pre_scaling[train_cols].max()
+    t_min = original_df[train_cols].min()
+    t_max = original_df[train_cols].max()
 
     X_custom_scaled = (new_data - t_min) / (t_max - t_min)
 
-    # 6. Predict
-    # The .values converts it to the NumPy matrix the model expects
     predictions = model.predict(X_custom_scaled.values)
 
     print("\n=== FINAL CORRECTED PREDICTIONS ===")

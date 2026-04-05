@@ -4,23 +4,19 @@ Model Klasyfikacyjny przepowiadający czy ktoś jest zdrowy czy nie
 import pandas as pd
 import numpy as np
 
-# ustawienie widoku kolumn dla lepszego podglądu
 pd.set_option('display.max_columns', None)
 
-# =======================================================
-# ===== POBIERANIE DANYCH
+
+# === PREPARING DATA
 data = pd.read_csv("digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
-# Przerabianie danych gender i locational_type na (0,1) (False/True) w osobnych kolumnach by model je nie odbierał rangowo i żeby nie wpływało to na wagi
 data = data.drop('user_id', axis=1)
 data = pd.get_dummies(data, columns=['gender', 'location_type'])
 data = data.astype(float)
 
-# Scaling, by każda kolumna byla z skali (0-1)
 data = (data - data.mean()) / data.std()
 
-# Deciding who is and isnt healthy
 data['is_depressed'] = np.where(
     (data['mental_health_score'] < 0.4) |
     (data['stress_level'] > 0.7) |
@@ -34,24 +30,24 @@ X = data.drop('is_depressed', axis=1).values
 
 rows, cols = X.shape
 
-# input layers: (28-1) = 27 columns
-# learning data: 2000 rows
-# hidden layers: 128
-# output layers: is depressed (0-1) - 1 layer
-
-# =======================================================
-# ===== NEURAL NETWORK The Prologue
+# === NEURAL NETWORK
 class Mentally_Unwell_Prediction:
+    """
+    input layers: (28-1) = 27 columns
+    learning data: 2000 rows
+    hidden layers: 128
+    output layers: is depressed (0-1) - 1 layer
+    """
     # Initialize the model
     def __init__(self):
         self.input = cols
         self.output = 1
         self.hidden_units = 128
 
-        # Initialize matrix of weights
-        self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)  #27*128 matrix
-        self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)   #128*64 matrix
-        self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )                       #64*1 matrix
+        # Weights
+        self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
+        self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)
+        self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )
 
         # Velocity
         self.v1 = np.zeros_like(self.w1)
@@ -83,18 +79,20 @@ class Mentally_Unwell_Prediction:
     def _sigmoid(self, z):
         return 1 / (1 + np.exp(-z))
 
+    # Binary Cross Entropy (Log Loss)
     def _loss(self, predict, y):
         m = y.shape[0]
-        loss = -1 / m * np.sum(y.T * np.log(predict + 1e-15) + (1 - y.T) * np.log(1 - predict + 1e-15))
+        logprobs = np.multiply(np.log(predict), y) + np.multiply((1 - y), np.log(1 - predict))
+        loss =- np.sum(logprobs) / m
         return loss
 
     def _backward_propagation(self, X, y):
         predict = self._forward_propagation(X)
         rows = X.shape[0]
 
-        dz4 = predict - y.T # Shape: (1, rows)
+        dz4 = predict - y.T
 
-        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T) # Shape: (64, 1)
+        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T)
         delta3 = np.dot(self.w3, dz4)
         self.db3 = (1/rows) * np.sum(dz4, axis=1, keepdims=True)
         dz3 = delta3 * self.ReLU_prime(self.z3)
@@ -131,7 +129,7 @@ class Mentally_Unwell_Prediction:
     def train(self, X, y, iteration=3000):
         learning_rate = 0.005
 
-        batch_size = 32
+        batch_size = 40
         rows = X.shape[0]
 
         for i in range(iteration):
@@ -166,11 +164,11 @@ def train():
     y_train = y[:1600]
     y_test = y[1600:]
 
-    clr = Mentally_Unwell_Prediction()  # initialize the model
+    clr = Mentally_Unwell_Prediction()
 
-    clr.train(X_train, y_train)  # train model
-    pre_y = clr.predict(X_test)  # predict
-    score = clr.score(pre_y, y_test)  # get the accuracy score
+    clr.train(X_train, y_train)
+    pre_y = clr.predict(X_test)
+    score = clr.score(pre_y, y_test)
 
     print(f'=== SCORE: {score:.2f}%')
 
@@ -206,7 +204,7 @@ def predict_new_users(model, new_data, original_df):
     new_data_scaled = (new_data - orig_features.min()) / (orig_features.max() - orig_features.min())
 
     X_custom = new_data_scaled.values
-    raw_probs = model._forward_propagation(X_custom)  # Prawdopodobieństwa
+    raw_probs = model._forward_propagation(X_custom)
 
     for i, prob in enumerate(raw_probs.T):
         status = "Unwell" if prob >= 0.5 else "Healty"
