@@ -137,7 +137,7 @@ class Sleep_Prediction:
 
             if i % 100 == 0:
                 full_y_hat = self._forward_propagation(X_train)
-                train_mae = np.mean(np.abs(full_y_hat.T - y_train))*10
+                train_mae = np.mean(np.abs(full_y_hat.T -  y_train))*10
 
                 full_y_test = self._forward_propagation(X_test)
                 test_mae = np.mean(np.abs(full_y_test.T - y_test))*10
