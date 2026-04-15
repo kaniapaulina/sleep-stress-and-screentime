@@ -170,7 +170,6 @@ def train():
 
     print('=== SCORE: ', score)
 
-
     def show_comparison(model, X_test, y_test):
         predictions = model.predict(X_test)
         comparison = pd.DataFrame({
