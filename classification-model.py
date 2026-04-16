@@ -41,15 +41,15 @@ class Mentally_Unwell_Prediction:
     output layers: is depressed (0-1) - 1 layer
     """
     # Initialize the model
-    def __init__(self):
+    def __init__(self, hidden_layers = 128):
         self.input = cols
         self.output = 1
-        self.hidden_units = 128
+        self.hidden_units = hidden_layers
 
         # Weights
         self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
-        self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)
-        self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )
+        self.w2 = np.random.randn(self.hidden_units, (self.hidden_units/2).is_integer())* np.sqrt(2. / self.hidden_units)
+        self.w3 = np.random.randn((self.hidden_units/2).is_integer(), self.output)* np.sqrt(2. / (self.hidden_units/2).is_integer() )
 
         # Velocity
         self.v1 = np.zeros_like(self.w1)
@@ -58,7 +58,7 @@ class Mentally_Unwell_Prediction:
 
         # Biases - initialized to 0
         self.b1 = np.zeros((self.hidden_units, 1))
-        self.b2 = np.zeros((64, 1))
+        self.b2 = np.zeros((((self.hidden_units/2).is_integer()), 1))
         self.b3 = np.zeros((self.output, 1))
 
     # Foward move from input layer through hidden layers, multiplying neuron by weight
@@ -121,9 +121,7 @@ class Mentally_Unwell_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
-    def train(self, X, y, iteration=1000):
-        learning_rate = 0.001
-        batch_size = 32
+    def train(self, X, y, iteration=1000, learning_rate=0.001, batch_size=32):
         rows = X.shape[0]
 
         for i in range(iteration):
@@ -151,12 +149,12 @@ class Mentally_Unwell_Prediction:
         cnt = np.sum(predict == y)
         return (cnt / len(y)) * 100
 
-def train():
-    X_train = X[:1600]
-    X_test = X[1600:]
+def train(seperator=1600):
+    X_train = X[:seperator]
+    X_test = X[seperator:]
 
-    y_train = y[:1600]
-    y_test = y[1600:]
+    y_train = y[:seperator]
+    y_test = y[seperator:]
 
     clr = Mentally_Unwell_Prediction()
 
@@ -176,7 +174,7 @@ def train():
         })
 
         print("\n=== ACTUAL VS PREDICTED ===")
-        print(comparison.head(10))
+        print(comparison.tail(10))
         acc = (comparison['Actual Healthstatus']==comparison['Predicted Health status']).mean()
         print(f"\nAverage Error: {acc*100:.1f}")
 
@@ -226,3 +224,57 @@ def predict_new_users(model, new_data, original_df):
         print(f"Test {i + 1}: Health -> Diagnose: {status}")
 
 predict_new_users(clr, new_samples, real_data)
+
+
+# PARAMETRIC TESTS
+def test_classification_params():
+    learning_rates = [0.01, 0.005, 0.003, 0.001]
+    hidden_units_list = [64, 128, 256, 512]
+    batch_sizes = [16, 32, 64, 128]
+
+    results = []
+
+    for lr in learning_rates:
+        for hu in hidden_units_list:
+            for bs in batch_sizes:
+
+                print(f"\nTEST: lr={lr}, hidden={hu}, batch={bs}")
+
+                model = Mentally_Unwell_Prediction(hidden_units=hu)
+
+                X_train = X[:1600]
+                X_test = X[1600:]
+
+                y_train = y[:1600]
+                y_test = y[1600:]
+
+                model.train(
+                    X_train,
+                    y_train,
+                    iteration=500,
+                    learning_rate=lr,
+                    batch_size=bs
+                )
+
+                pred = model.predict(X_test)
+                score = model.score(pred, y_test)
+
+                results.append({
+                    "lr": lr,
+                    "hidden": hu,
+                    "batch": bs,
+                    "accuracy": score
+                })
+
+    df = pd.DataFrame(results)
+
+    print("\n=== RESULTS ===")
+    print(df.sort_values("accuracy", ascending=False))
+
+    # === SAVE RESULTS TO FILE
+    df.to_csv("test_results/classification/classification_param_tests.csv", index=False)
+
+    return df
+
+df_class_results = test_classification_params()
+print(df_class_results.sort_values("accuracy", ascending=False).head(10))

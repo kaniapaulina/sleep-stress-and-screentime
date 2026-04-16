@@ -41,10 +41,10 @@ class Sleep_Prediction:
         output layers: hours of sleep predicted - 1 layer
     """
 
-    def __init__(self):
+    def __init__(self, hidden_units=128):
         self.input = cols
         self.output = 1
-        self.hidden_units = 128
+        self.hidden_units = hidden_units
 
         # Weights
         self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
@@ -84,22 +84,20 @@ class Sleep_Prediction:
     def _backward_propagation(self, X, y):
         predict = self._forward_propagation(X)
         rows = X.shape[0]
-        lambda_param = 0.001
 
+        # Output Layer (Sigmoid + BCE)
         dz4 = predict - y.T
+        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T)
+        self.db3 = (1 / rows) * np.sum(dz4, axis=1, keepdims=True)
 
-        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T) + (lambda_param * self.w3)
-        delta3 = np.dot(self.w3, dz4)
-        self.db3 = (1/rows) * np.sum(dz4, axis=1, keepdims=True)
-        dz3 = delta3 * self.ReLU_prime(self.z3)
-
-        self.dw2 = (1 / rows) * np.dot(self.a2, dz3.T) + (lambda_param * self.w2)
-        delta2 = np.dot(self.w2, dz3)
+        # Hidden Layer 2 (ReLU)
+        dz3 = np.dot(self.w3, dz4) * self.ReLU_prime(self.z3)
+        self.dw2 = (1 / rows) * np.dot(self.a2, dz3.T)
         self.db2 = (1 / rows) * np.sum(dz3, axis=1, keepdims=True)
-        dz2 = delta2 * self.ReLU_prime(self.z2)
 
-        self.dw1 = (1 / rows) * np.dot(X.T, dz2.T) + (lambda_param * self.w1)
-        delta1 = np.dot(self.w1, dz2)
+        # Hidden Layer 1 (ReLU)
+        dz2 = np.dot(self.w2, dz3) * self.ReLU_prime(self.z2)
+        self.dw1 = (1 / rows) * np.dot(X.T, dz2.T)
         self.db1 = (1 / rows) * np.sum(dz2, axis=1, keepdims=True)
 
     def ReLU_prime(self, z):
@@ -119,9 +117,7 @@ class Sleep_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
-    def train(self, X_train, y_train, X_test, y_test, iteration=1000):
-        learning_rate = 0.008
-        batch_size = 32
+    def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.005, batch_size=32):
         rows = X_train.shape[0]
 
         for i in range(iteration):
@@ -149,7 +145,7 @@ class Sleep_Prediction:
 
     def predict(self, X):
         y_hat_scaled = self._forward_propagation(X)
-        return np.array(y_hat_scaled.T)*10
+        return np.maximum(0, np.array(y_hat_scaled.T)*10)
 
     def score(self, predict, y):
         return np.mean(np.abs(predict - y))
@@ -180,7 +176,7 @@ def train():
             0)
 
         print("\n=== ACTUAL VS PREDICTED ===")
-        print(comparison.head(10)*10)
+        print(comparison.tail(10)*10)
 
         print(f"\nAverage Error: {comparison['Error (Minutes)'].mean():.1f} minutes")
 
@@ -225,6 +221,59 @@ def predict_new_users(model, new_data, original_df):
 
     print("\n=== FINAL CORRECTED PREDICTIONS ===")
     for i, hours in enumerate(predictions):
-        print(f"User {i + 1}: Predicted {hours[0]*10:.2f} hours of sleep")
+        print(f"User {i + 1}: Predicted {hours[0]:.2f} hours of sleep")
 
 predict_new_users(clr, new_samples, real_data)
+
+#  PARAMETRIC TESTS (part 2 of the project)
+def test_regression_params():
+    learning_rates = [0.01, 0.008, 0.005, 0.001]
+    hidden_units_list = [64, 128, 256, 512]
+    batch_sizes = [16, 32, 64, 128]
+
+    results = []
+
+    for lr in learning_rates:
+        for hu in hidden_units_list:
+            for bs in batch_sizes:
+
+                print(f"\nTEST: lr={lr}, hidden={hu}, batch={bs}")
+
+                model = Sleep_Prediction(hidden_units = hu)
+
+                # ZMIANA learning rate i batch size w train
+                def custom_train():
+                    X_train = X[:1600]
+                    X_test = X[1600:]
+
+                    y_train = y[:1600]
+                    y_test = y[1600:]
+
+                    model.train(X_train, y_train/10, X_test, y_test/10, iteration=500, learning_rate=lr, batch_size=bs) #zmiana 2 ostatnie dodane zmienne
+
+                    pred = model.predict(X_test)
+                    score = model.score(pred, y_test)
+
+                    return score
+
+                score = custom_train()
+
+                results.append({
+                    "lr": lr,
+                    "hidden": hu,
+                    "batch": bs,
+                    "MAE": score
+                })
+
+    df = pd.DataFrame(results)
+    print("\n=== RESULTS ===")
+    print(df.sort_values("MAE"))
+
+    return df
+
+df_results = test_regression_params()
+
+# === SAVE RESULTS TO FILE
+df_results.to_csv("test_results/regression/regression_param_tests_results.csv", index=False)
+
+best_results = df_results.sort_values("MAE").head(10)
