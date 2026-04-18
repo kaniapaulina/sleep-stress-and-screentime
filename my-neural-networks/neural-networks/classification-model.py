@@ -1,5 +1,5 @@
 """
-Model Klasyfikacyjny przepowiadający czy ktoś jest zdrowy czy nie
+Classification model predicting someones health status based on his screen- and sleep time
 """
 import pandas as pd
 import numpy as np
@@ -41,15 +41,15 @@ class Mentally_Unwell_Prediction:
     output layers: is depressed (0-1) - 1 layer
     """
     # Initialize the model
-    def __init__(self, hidden_layers = 128):
+    def __init__(self, hidden_units = 128):
         self.input = cols
         self.output = 1
-        self.hidden_units = hidden_layers
+        self.hidden_units = hidden_units
 
         # Weights
-        self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
-        self.w2 = np.random.randn(self.hidden_units, (self.hidden_units/2).is_integer())* np.sqrt(2. / self.hidden_units)
-        self.w3 = np.random.randn((self.hidden_units/2).is_integer(), self.output)* np.sqrt(2. / (self.hidden_units/2).is_integer() )
+        self.w1 = np.random.randn(self.input, self.hidden_units) * np.sqrt(2. / self.input)
+        self.w2 = np.random.randn(self.hidden_units, 64) * np.sqrt(2. / self.hidden_units)
+        self.w3 = np.random.randn(64, self.output) * np.sqrt(2. / 64)
 
         # Velocity
         self.v1 = np.zeros_like(self.w1)
@@ -58,7 +58,7 @@ class Mentally_Unwell_Prediction:
 
         # Biases - initialized to 0
         self.b1 = np.zeros((self.hidden_units, 1))
-        self.b2 = np.zeros((((self.hidden_units/2).is_integer()), 1))
+        self.b2 = np.zeros((64, 1))
         self.b3 = np.zeros((self.output, 1))
 
     # Foward move from input layer through hidden layers, multiplying neuron by weight
@@ -121,12 +121,19 @@ class Mentally_Unwell_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
-    def train(self, X, y, iteration=1000, learning_rate=0.001, batch_size=32):
-        rows = X.shape[0]
+    def train(self, X_train, y_train, iteration=1000, learning_rate=0.001, batch_size=32):
+        rows = X_train.shape[0]
 
         for i in range(iteration):
-            self._backward_propagation(X, y)
-            self._update(learning_rate)
+            idx = np.random.permutation(rows)
+
+            X_s, y_s = X_train[idx], y_train[idx]
+
+            for s in range(0, rows, batch_size):
+                X_b, y_b = X_s[s:s + batch_size], y_s[s:s + batch_size]
+
+                self._backward_propagation(X_b, y_b)
+                self._update(learning_rate)
 
             if i % 100 == 0:
                 full_y_hat = self._forward_propagation(X)
@@ -183,9 +190,7 @@ def train(seperator=1600):
     return clr
 
 
-clr = train()
-
-# TESTOWANIE MODELU
+# TESTING THE MODEL
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -223,14 +228,13 @@ def predict_new_users(model, new_data, original_df):
         status = "Unwell" if risk >= 0.5 else "Healthy"
         print(f"Test {i + 1}: Health -> Diagnose: {status}")
 
-predict_new_users(clr, new_samples, real_data)
-
 
 # PARAMETRIC TESTS
 def test_classification_params():
     learning_rates = [0.01, 0.005, 0.003, 0.001]
     hidden_units_list = [64, 128, 256, 512]
     batch_sizes = [16, 32, 64, 128]
+    seperator = [1000, 1400, 1600, 1900]
 
     results = []
 
@@ -251,7 +255,7 @@ def test_classification_params():
                 model.train(
                     X_train,
                     y_train,
-                    iteration=500,
+                    iteration=1000,
                     learning_rate=lr,
                     batch_size=bs
                 )
@@ -271,10 +275,17 @@ def test_classification_params():
     print("\n=== RESULTS ===")
     print(df.sort_values("accuracy", ascending=False))
 
-    # === SAVE RESULTS TO FILE
     df.to_csv("test_results/classification/classification_param_tests.csv", index=False)
 
     return df
 
-df_class_results = test_classification_params()
-print(df_class_results.sort_values("accuracy", ascending=False).head(10))
+
+def main_func():
+    clr = train()
+    predict_new_users(clr, new_samples, real_data)
+
+    df_class_results = test_classification_params()
+    print(df_class_results.sort_values("accuracy", ascending=False).head(10))
+
+if __name__ == "__main__":
+    main_func()

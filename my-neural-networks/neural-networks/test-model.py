@@ -202,7 +202,7 @@ def classification_model_test():
     X = data.drop('is_depressed', axis=1).values
 
     class Mentally_Unwell_Prediction:
-        def __init__(self, layers=[29, 128, 64   , 1], activation='relu'):
+        def __init__(self, layers=[29, 128, 64, 1], activation='relu'):
             self.weights = []
             self.velocity = []
             self.biases = []

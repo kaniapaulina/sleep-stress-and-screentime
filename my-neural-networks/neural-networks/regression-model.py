@@ -117,7 +117,7 @@ class Sleep_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
-    def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.005, batch_size=32):
+    def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.005, batch_size=16):
         rows = X_train.shape[0]
 
         for i in range(iteration):
@@ -184,7 +184,6 @@ def train():
 
     return clr
 
-clr = train()
 
 # TESTING THE MODEL
 import io
@@ -223,13 +222,13 @@ def predict_new_users(model, new_data, original_df):
     for i, hours in enumerate(predictions):
         print(f"User {i + 1}: Predicted {hours[0]:.2f} hours of sleep")
 
-predict_new_users(clr, new_samples, real_data)
 
-#  PARAMETRIC TESTS (part 2 of the project)
+#  PARAMETRIC TESTS
 def test_regression_params():
     learning_rates = [0.01, 0.008, 0.005, 0.001]
     hidden_units_list = [64, 128, 256, 512]
     batch_sizes = [16, 32, 64, 128]
+    seperator = [1000, 1400, 1600, 1900]
 
     results = []
 
@@ -249,7 +248,7 @@ def test_regression_params():
                     y_train = y[:1600]
                     y_test = y[1600:]
 
-                    model.train(X_train, y_train/10, X_test, y_test/10, iteration=500, learning_rate=lr, batch_size=bs) #zmiana 2 ostatnie dodane zmienne
+                    model.train(X_train, y_train/10, X_test, y_test/10, iteration=1000, learning_rate=lr, batch_size=bs)
 
                     pred = model.predict(X_test)
                     score = model.score(pred, y_test)
@@ -271,9 +270,15 @@ def test_regression_params():
 
     return df
 
-df_results = test_regression_params()
 
-# === SAVE RESULTS TO FILE
-df_results.to_csv("test_results/regression/regression_param_tests_results.csv", index=False)
+def main_func():
+    clr = train()
+    predict_new_users(clr, new_samples, real_data)
 
-best_results = df_results.sort_values("MAE").head(10)
+    df_results = test_regression_params()
+    df_results.to_csv("test_results/regression/regression_param_tests_results.csv", index=False)
+    print(df_results.sort_values("MAE").head(10))
+
+
+if __name__ == "__main__":
+    main_func()
