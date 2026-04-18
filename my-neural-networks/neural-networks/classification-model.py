@@ -1,14 +1,29 @@
 """
-Classification model predicting someones health status based on his screen- and sleep time
+=======================================================================
+  MODEL KLASYFIKACYJNY - Przewidywanie stanu zdrowia psychicznego
+=======================================================================
+  Cel: Na podstawie czasu przed ekranem, snu i innych czynników klasyfikator decyduje, czy dana osoba jest psychicznie "zdrowa" czy "niezdrowa" (is_depressed: 0 lub 1).
+
+  Architektura:
+    Warstwa wejściowa: 27 cech
+    Warstwa ukryta 1: 128 neuronów (ReLU)
+    Warstwa ukryta 2: 64 neurony (ReLU)
+    Warstwa wyjściowa: 1 neuron (Sigmoid → prawdopodobieństwo 0-1)
+
+  Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
+  Funkcja straty: Binary Cross-Entropy (Log Loss)
+  # --------------------------------------------------------------------
 """
+
 import pandas as pd
 import numpy as np
 
 pd.set_option('display.max_columns', None)
 
-
-# === PREPARING DATA
-data = pd.read_csv("digital_diet_mental_health.csv")
+# --------------------------------------------------------------------
+# READING & PREPARING DATA
+# --------------------------------------------------------------------
+data = pd.read_csv("../data/digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
 data = data.drop('user_id', axis=1)
@@ -25,22 +40,20 @@ data['is_depressed'] = np.where(
 
 real_data = data.copy()
 
-# TARGET
+# TARGET (y) and FEATURES (X)
 y = data['is_depressed'].values.reshape(2000, 1)
-# FEATURES
 X = data.drop('is_depressed', axis=1).values
 
 rows, cols = X.shape
 
-# === NEURAL NETWORK
+# --------------------------------------------------------------------
+# NEURAL NETWORK: A masterclass
+# --------------------------------------------------------------------
 class Mentally_Unwell_Prediction:
     """
-    input layers: (28-1) = 27 columns
-    learning data: 2000 rows
-    hidden layers: 128
-    output layers: is depressed (0-1) - 1 layer
+    A multilayered neural network that binary classifies someones mental health status
     """
-    # Initialize the model
+    # === Initialize the model
     def __init__(self, hidden_units = 128):
         self.input = cols
         self.output = 1
@@ -61,36 +74,55 @@ class Mentally_Unwell_Prediction:
         self.b2 = np.zeros((64, 1))
         self.b3 = np.zeros((self.output, 1))
 
+    # === Foward Propagation
     # Foward move from input layer through hidden layers, multiplying neuron by weight
     def _forward_propagation(self, X):
+        # Layer 1 (from input to hidden layer 1)
         self.z2 = np.dot(self.w1.T, X.T) + self.b1
-        self.a2 = self.ReLU(self.z2)
+        self.a2 = self._ReLU(self.z2)
 
+        # Layer 2 (from hidden layer 1 to hidden layer 2)
         self.z3 = np.dot(self.w2.T, self.a2) + self.b2
-        self.a3 = self.ReLU(self.z3)
+        self.a3 = self._ReLU(self.z3)
 
+        # Output layer (Sigmoid for binary classification)
         self.z4 = np.dot(self.w3.T, self.a3) + self.b3
-        self.a4 = self.sigmoid(self.z4)
+        self.a4 = self._sigmoid(self.z4)
 
         return self.a4
 
-    # Rectified Linear Unit
-    def ReLU(self, Z): return np.maximum(Z, 0)
-    def sigmoid(self, z): return 1 / (1 + np.exp(-z))
+    # === Activation Function
+    # Rectified Linear Unit (hidden layers)
+    def _ReLU(self, Z): return np.maximum(Z, 0)
 
+    # Sigmoid (output layer)
+    def _sigmoid(self, z): return 1 / (1 + np.exp(-z))
+
+    # === Loss Function
     # Binary Cross Entropy (Log Loss)
     def _loss(self, predict, y):
+        """
+        BCE = -(1/m) * Σ [ y·log(ŷ) + (1-y)·log(1-ŷ) ]
+        The lower the result, the better the model
+        """
         m = y.shape[0]
         logprobs = np.multiply(np.log(predict), y) + np.multiply((1 - y), np.log(1 - predict))
         loss =- np.sum(logprobs) / m
         return loss
 
+    # === Backwards Propagation
+    # Calculating the gradient moving backwards
     def _backward_propagation(self, X, y):
+        """
+        Calculating the derivative of the loss function over every weight
+        Chain: ∂L/∂w = ∂L/∂z · ∂z/∂w
+        """
         predict = self._forward_propagation(X)
         rows = X.shape[0]
 
         # Output Layer (Sigmoid + BCE)
         dz4 = predict - y.T
+
         self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T)
         self.db3 = (1 / rows) * np.sum(dz4, axis=1, keepdims=True)
 
@@ -105,9 +137,16 @@ class Mentally_Unwell_Prediction:
         self.db1 = (1 / rows) * np.sum(dz2, axis=1, keepdims=True)
 
     def ReLU_prime(self, z): return (z>0).astype(float)
-    def sigmoid_prime(self, z): return self.sigmoid(z) * (1 - self.sigmoid(z))
+    def sigmoid_prime(self, z): return self._sigmoid(z) * (1 - self._sigmoid(z))
 
+    # === Update Parameters
+    # SGD Momentum
     def _update(self, learning_rate=0.01):
+        """
+        Momentum smoothes out the gradient rise
+        v = β·v + (1-β)·grad
+        w = w - lr·v
+        """
         beta = 0.9
         self.v1 = beta * self.v1 + (1-beta) * self.dw1
         self.w1 = self.w1 - learning_rate * self.v1
@@ -121,7 +160,8 @@ class Mentally_Unwell_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
-    def train(self, X_train, y_train, iteration=1000, learning_rate=0.001, batch_size=32):
+    # === TRAINING
+    def train(self, X_train, y_train, iteration=1000, learning_rate=0.001, batch_size=16):
         rows = X_train.shape[0]
 
         for i in range(iteration):
@@ -156,6 +196,9 @@ class Mentally_Unwell_Prediction:
         cnt = np.sum(predict == y)
         return (cnt / len(y)) * 100
 
+# --------------------------------------------------------------------
+# TRAINING THE MODEL
+# --------------------------------------------------------------------
 def train(seperator=1600):
     X_train = X[:seperator]
     X_test = X[seperator:]
@@ -163,14 +206,19 @@ def train(seperator=1600):
     y_train = y[:seperator]
     y_test = y[seperator:]
 
-    clr = Mentally_Unwell_Prediction()
+    print("=" * 60)
+    print("CLASSIFICATION MODEL TRAINING")
+    print("=" * 60)
 
-    clr.train(X_train, y_train)
-    pre_y = clr.predict(X_test)
-    score = clr.score(pre_y, y_test)
+    model = Mentally_Unwell_Prediction()
+
+    model.train(X_train, y_train)
+    pre_y = model.predict(X_test)
+    score = model.score(pre_y, y_test)
 
     print(f'=== SCORE: {score:.2f}%')
 
+    # === Comparison of last 15 data rows
     def show_comparison(model, X_test, y_test):
         probs = model.predict(X_test)
         predictions = (probs.T > 0.5).astype(int)
@@ -181,16 +229,17 @@ def train(seperator=1600):
         })
 
         print("\n=== ACTUAL VS PREDICTED ===")
-        print(comparison.tail(10))
+        print(comparison.tail(15).to_string(index=False))
         acc = (comparison['Actual Healthstatus']==comparison['Predicted Health status']).mean()
         print(f"\nAverage Error: {acc*100:.1f}")
 
-    show_comparison(clr, X_test, y_test)
+    show_comparison(model, X_test, y_test)
 
-    return clr
+    return model
 
-
-# TESTING THE MODEL
+# --------------------------------------------------------------------
+# TESTING THE MODEL on different data
+# --------------------------------------------------------------------
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -204,7 +253,6 @@ user_anxious_student,20,Female,9.5,7.0,2.0,0.5,0.0,6.5,2.0,1.0,0.0,5.0,4,4,8,1.5
 user_balanced,35,Male,5.0,2.5,2.0,0.5,0.0,1.5,3.0,0.5,0.0,7.5,8,7,3,5.0,Suburban,78,1,1,50.0,5,3,20.0"""
 
 new_samples = pd.read_csv(io.StringIO(csv_data))
-
 
 def predict_new_users(model, new_data, original_df):
     if 'user_id' in new_data.columns:
@@ -228,13 +276,19 @@ def predict_new_users(model, new_data, original_df):
         status = "Unwell" if risk >= 0.5 else "Healthy"
         print(f"Test {i + 1}: Health -> Diagnose: {status}")
 
-
-# PARAMETRIC TESTS
+# --------------------------------------------------------------------
+# PARAMETRIC TESTS - Grid Search
+# --------------------------------------------------------------------
 def test_classification_params():
     learning_rates = [0.01, 0.005, 0.003, 0.001]
     hidden_units_list = [64, 128, 256, 512]
     batch_sizes = [16, 32, 64, 128]
-    seperator = [1000, 1400, 1600, 1900]
+
+    X_train = X[:1600]
+    X_test = X[1600:]
+
+    y_train = y[:1600]
+    y_test = y[1600:]
 
     results = []
 
@@ -245,12 +299,6 @@ def test_classification_params():
                 print(f"\nTEST: lr={lr}, hidden={hu}, batch={bs}")
 
                 model = Mentally_Unwell_Prediction(hidden_units=hu)
-
-                X_train = X[:1600]
-                X_test = X[1600:]
-
-                y_train = y[:1600]
-                y_test = y[1600:]
 
                 model.train(
                     X_train,
@@ -264,22 +312,27 @@ def test_classification_params():
                 score = model.score(pred, y_test)
 
                 results.append({
-                    "lr": lr,
-                    "hidden": hu,
-                    "batch": bs,
-                    "accuracy": score
+                    "learning rate":     lr,
+                    "hidden units":      hu,
+                    "batch size":        bs,
+                    "train accuracy":    score
                 })
+
 
     df = pd.DataFrame(results)
 
     print("\n=== RESULTS ===")
     print(df.sort_values("accuracy", ascending=False))
 
-    df.to_csv("test_results/classification/classification_param_tests.csv", index=False)
+    best = df.loc[df['train accuracy'].idxmax()]
+    print(best[['learning rate', 'hidden units', 'batch size', 'train accuracy']].to_string(index=False))
 
+    df.to_csv("../test-results/classification/classification_param_tests.csv", index=False)
     return df
 
-
+# --------------------------------------------------------------------
+# --------------------------------------------------------------------
+# --------------------------------------------------------------------
 def main_func():
     clr = train()
     predict_new_users(clr, new_samples, real_data)

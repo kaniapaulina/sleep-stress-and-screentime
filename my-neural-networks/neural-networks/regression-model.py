@@ -1,15 +1,30 @@
 """
-Regression model predicting hours of sleep based on factors such as: stress levels, screentime, age etc.
+=======================================================================
+  MODEL REGRESYJNY — Przewidywanie długości snu
+=======================================================================
+  Cel: Na podstawie poziomu stresu, czasu ekranowego, aktywności itp. sieć neuronowa przewiduje ile godzin śpi dana osoba.
+
+  Architektura:
+    Warstwa wejściowa: 29 cech (z feature engineeringiem)
+    Warstwa ukryta 1: 128 neuronów (Leaky ReLU)
+    Warstwa ukryta 2: 64 neurony (Leaky ReLU)
+    Warstwa wyjściowa: neuron (liniowa — wartość ciągła)
+
+  Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
+  Funkcja straty: MSE (Mean Squared Error)
+  Metryka: MAE (Mean Absolute Error) w godzinach
+  # --------------------------------------------------------------------
 """
 
-# === LIBRARIES
 import pandas as pd
 import numpy as np
 
 pd.set_option('display.max_columns', None)
 
-# === PREPARING DATA
-data = pd.read_csv("digital_diet_mental_health.csv")
+# --------------------------------------------------------------------
+# READING & PREPARING DATA
+# --------------------------------------------------------------------
+data = pd.read_csv("../data/digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
 data = data.drop('user_id', axis=1)
@@ -23,22 +38,18 @@ real_data = data.copy()
 
 data = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0))
 
-# TARGET
+# TARGET (y) and FEATURES (X)
 y = data['sleep_duration_hours'].values.reshape(2000, 1)
-# FEATURES
 X = data.drop(columns='sleep_duration_hours').values
 
 rows, cols = X.shape
 
-# === NEURAL NETWORK
+# --------------------------------------------------------------------
+# NEURAL NETWORK Definition
+# --------------------------------------------------------------------
 class Sleep_Prediction:
     """
-    A primitive neural network written from scratch
-    Parameters:
-        input layers: 28 (all) - 1 (what we want to predict) = 27 columns
-        learning data: 2000 rows
-        hidden layers: 128
-        output layers: hours of sleep predicted - 1 layer
+    A multilayer neural network for linear regression
     """
 
     def __init__(self, hidden_units=128):
@@ -61,6 +72,8 @@ class Sleep_Prediction:
         self.b2 = np.zeros((64, 1))
         self.b3 = np.zeros((self.output, 1))
 
+    # === Foward Propagation
+    # Foward move from input layer through hidden layers, multiplying neuron by weight
     def _forward_propagation(self, X):
         self.z2 = np.dot(self.w1.T, X.T) + self.b1
         self.a2 = self.ReLU(self.z2)
@@ -73,14 +86,24 @@ class Sleep_Prediction:
 
         return self.a4
 
+    # === Activation Function
+    # Rectified Linear Unit
     def ReLU(self, Z):
         return np.where(Z > 0, Z, Z * 0.01)  # Leaky ReLU
 
+    # === Loss Function
+    # Mean Squared Error
     def _loss(self, predict, y):
+        """
+        MSE = (1/m) · Σ (ŷ - y)²
+        Model avoids outliers because the loss squared becomes very large
+        """
         m = y.shape[0]
         loss = 1/m * np.sum((predict - y.T)**2)
         return loss
 
+    # === Backwards Propagation
+    # Calculating the gradient moving backwards
     def _backward_propagation(self, X, y):
         predict = self._forward_propagation(X)
         rows = X.shape[0]
@@ -103,6 +126,8 @@ class Sleep_Prediction:
     def ReLU_prime(self, z):
         return np.where(z > 0, 1, 0.01) # Leaky ReLu
 
+    # === Update Parameters
+    # SGD Momentum
     def _update(self, learning_rate=0.01):
         beta = 0.9
         self.v1 = beta * self.v1 + (1-beta) * self.dw1
@@ -117,6 +142,7 @@ class Sleep_Prediction:
         self.w3 = self.w3 - learning_rate * self.v3
         self.b3 = self.b3 - learning_rate * self.db3
 
+    # === TRAINING
     def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.005, batch_size=16):
         rows = X_train.shape[0]
 
@@ -150,7 +176,9 @@ class Sleep_Prediction:
     def score(self, predict, y):
         return np.mean(np.abs(predict - y))
 
-# === TRAINING THE MODEL
+# --------------------------------------------------------------------
+# TRAINING THE MODEL
+# --------------------------------------------------------------------
 def train():
     X_train = X[:1600]
     X_test = X[1600:]
@@ -158,11 +186,15 @@ def train():
     y_train = y[:1600]
     y_test = y[1600:]
 
-    clr = Sleep_Prediction()
+    print("=" * 60)
+    print("REGRESSION MODEL TRAINING")
+    print("=" * 60)
 
-    clr.train(X_train, y_train/10, X_test, y_test/10)
-    pre_y = clr.predict(X_test)
-    score = clr.score(pre_y, y_test)
+    model = Sleep_Prediction()
+
+    model.train(X_train, y_train/10, X_test, y_test/10)
+    pre_y = model.predict(X_test)
+    score = model.score(pre_y, y_test)
 
     print('=== SCORE: ', score)
 
@@ -180,12 +212,13 @@ def train():
 
         print(f"\nAverage Error: {comparison['Error (Minutes)'].mean():.1f} minutes")
 
-    show_comparison(clr, X_test, y_test)
+    show_comparison(model, X_test, y_test)
 
-    return clr
+    return model
 
-
-# TESTING THE MODEL
+# --------------------------------------------------------------------
+# TESTING THE MODEL on different data
+# --------------------------------------------------------------------
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -222,8 +255,9 @@ def predict_new_users(model, new_data, original_df):
     for i, hours in enumerate(predictions):
         print(f"User {i + 1}: Predicted {hours[0]:.2f} hours of sleep")
 
-
-#  PARAMETRIC TESTS
+# --------------------------------------------------------------------
+# PARAMETRIC TESTS - Grid Search
+# --------------------------------------------------------------------
 def test_regression_params():
     learning_rates = [0.01, 0.008, 0.005, 0.001]
     hidden_units_list = [64, 128, 256, 512]
@@ -258,9 +292,9 @@ def test_regression_params():
                 score = custom_train()
 
                 results.append({
-                    "lr": lr,
-                    "hidden": hu,
-                    "batch": bs,
+                    "learning rate": lr,
+                    "hidden units": hu,
+                    "batch size": bs,
                     "MAE": score
                 })
 
@@ -268,15 +302,21 @@ def test_regression_params():
     print("\n=== RESULTS ===")
     print(df.sort_values("MAE"))
 
+    best = df.loc[df['MAE'].idxmax()]
+    print(best[['learning rate', 'hidden units', 'batch size', 'MAE']].to_string(index=False))
+
+    df.to_csv("../test-results/regression/regression_param_tests_results.csv", index=False)
+
     return df
 
-
+# --------------------------------------------------------------------
+# --------------------------------------------------------------------
+# --------------------------------------------------------------------
 def main_func():
     clr = train()
     predict_new_users(clr, new_samples, real_data)
 
     df_results = test_regression_params()
-    df_results.to_csv("test_results/regression/regression_param_tests_results.csv", index=False)
     print(df_results.sort_values("MAE").head(10))
 
 
