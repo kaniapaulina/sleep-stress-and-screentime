@@ -139,7 +139,7 @@ def regression_model_test():
 
         params_to_test = {
             "architecture": [
-                [29, 1], [29, 64, 1], [29, 64, 32, 1], [29, 128, 63, 1],[29, 128, 64, 32, 1]
+                [29, 1], [29, 64, 1], [29, 64, 32, 1], [29, 128, 64, 1],[29, 128, 64, 32, 1]
             ],
             "activation_function": ['relu', 'tanh', 'sigmoid', 'leaky_relu'],
             "learning_rate": [0.01, 0.005, 0.001, 0.0005],

@@ -176,9 +176,9 @@ class Mentally_Unwell_Prediction:
                 self._update(learning_rate)
 
             if i % 100 == 0:
-                full_y_hat = self._forward_propagation(X)
+                full_y_hat = self._forward_propagation(X_train)
                 predictions = (full_y_hat.T > 0.5).astype(float)
-                accuracy = np.mean(predictions == y)
+                accuracy = np.mean(predictions == y_train)
 
                 print(f"Iter {i} | Loss: {self._loss(full_y_hat, y):.4f} | Accuracy: {accuracy * 100:.2f}%")
 
