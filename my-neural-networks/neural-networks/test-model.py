@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 def regression_model_test():
-    data = pd.read_csv("../data/digital_diet_mental_health.csv")
+    data = pd.read_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\data\digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
@@ -180,10 +180,10 @@ def regression_model_test():
         return pd.DataFrame(results)
 
     df = run_full_analysis()
-    df.to_csv("test_results/regression/singular_regression_param_tests_results.csv", index=False)
+    df.to_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\test-results\regression\singular_regression_param_tests_results.csv", index=False)
 
 def classification_model_test():
-    data = pd.read_csv("digital_diet_mental_health.csv")
+    data = pd.read_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\data\digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
@@ -311,7 +311,7 @@ def classification_model_test():
 
         clr = Mentally_Unwell_Prediction()
 
-        clr.train(X_train, y_train / 10, it, lr, bs)
+        clr.train(X_train, y_train, it, lr, bs)
         pre_y = clr.predict(X_test)
         score = clr.score(pre_y, y_test)
 
@@ -352,7 +352,7 @@ def classification_model_test():
                 y_train, y_test = y[:sep], y[sep:]
 
                 model = Mentally_Unwell_Prediction(layers=arch, activation=act)
-                model.train(X_train, y_train / 10, iteration=1000, lr=lr, batch_size=bs)
+                model.train(X_train, y_train, iteration=1000, lr=lr, batch_size=bs)
 
                 train_mae = model.score(model.predict(X_train), y_train)
                 test_mae = model.score(model.predict(X_test), y_test)
@@ -363,13 +363,13 @@ def classification_model_test():
                 results.append({
                     "Tested Param": param_name,
                     "Value": str(val),
-                    "Train MAE (Avg)": train_errors,
-                    "Test MAE (Avg)": test_errors,
+                    "Train Accuracy": train_errors,
+                    "Test Accuracy": test_errors,
                 })
         return pd.DataFrame(results)
 
     df = run_full_analysis()
-    df.to_csv("../test_results/classification/singular_classification_param_tests_results.csv", index=False)
+    df.to_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\test-results\classification\singular_classification_param_tests_results.csv", index=False)
 
 
 regression_model_test()
