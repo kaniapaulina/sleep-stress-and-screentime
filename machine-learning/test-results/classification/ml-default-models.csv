@@ -1,0 +1,7 @@
+model,parameter_name,parameter_value,train_accuracy,test_accuracy,train_precision,test_precision,train_f1,test_f1
+Logistic Regression,default,default,0.901875,0.925,0.8972023621571924,0.9228620411456232,0.8974039645105293,0.9226058816136735
+K-Nearest Neighbors,default,default,1.0,0.795,1.0,0.7969656333449435,1.0,0.7959609375
+Random Forest,default,default,1.0,1.0,1.0,1.0,1.0,1.0
+MLP Classifier (NN),default,default,0.97375,0.9425,0.974316016504126,0.9415165395456806,0.9739482821637426,0.941782636805366
+Decision Tree,default,default,1.0,1.0,1.0,1.0,1.0,1.0
+SVM,default,default,0.9525,0.9125,0.9517241467839659,0.9094186626746505,0.951297077922078,0.9094459068175835
