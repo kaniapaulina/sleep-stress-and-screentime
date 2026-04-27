@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 def regression_model_test():
-    data = pd.read_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\data\digital_diet_mental_health.csv")
+    data = pd.read_csv(r"/neural-networks\data\digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
@@ -122,7 +122,7 @@ def regression_model_test():
 
         clr = Sleep_Prediction()
 
-        clr.train(X_train, y_train / 10, it, lr, bs)
+        clr.train(X_train, y_train, it, lr, bs)
         pre_y = clr.predict(X_test)
         score = clr.score(pre_y, y_test)
 
@@ -183,7 +183,7 @@ def regression_model_test():
     df.to_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\test-results\regression\singular_regression_param_tests_results.csv", index=False)
 
 def classification_model_test():
-    data = pd.read_csv(r"D:\personal-projects\sleep-stress-and-screentime\my-neural-networks\data\digital_diet_mental_health.csv")
+    data = pd.read_csv(r"/neural-networks\data\digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
