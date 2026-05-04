@@ -1,5 +1,0 @@
-model,train_accuracy,test_accuracy,f1_score
-Logistic Regression,0.9044,0.9025,0.9401
-K-Nearest Neighbors,0.8981,0.8,0.8799
-Random Forest,1.0,1.0,1.0
-MLP Classifier (NN),0.9819,0.925,0.9525
