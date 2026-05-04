@@ -150,8 +150,6 @@ def find_best_parameter(X_train, X_test, y_train, y_test):
         print(f"\n{name} Best Params: {result['best_params']}")
     print("=" * 60)
 
-
-
 def evaluate_classification_model(model, X_train, X_test, y_train, y_test):
     model.fit(X_train, y_train)
 
@@ -224,9 +222,6 @@ def compare_models(X_train, X_test, y_train, y_test):
 
         print(f"  {name:<30} | train: {values['train_accuracy']*100:.2f}%  test: {values['test_accuracy']*100:.2f}%")
         add_result(results, name, "default", "default", values=values)
-
-    df = pd.DataFrame(results)
-    df.to_csv("test-results/classification/ml-default-models.csv", index=False)
 
 
 def test_logistic_regression(X_train, X_test, y_train, y_test):
@@ -427,7 +422,6 @@ def test_svm(X_train, X_test, y_train, y_test):
 def main():
     X_train, X_test, y_train, y_test = prepare_data()
     find_best_parameter(X_train, X_test, y_train, y_test)
-
     compare_models(X_train, X_test, y_train, y_test)
 
     all_results = []
@@ -435,6 +429,8 @@ def main():
     all_results += test_knn(X_train, X_test, y_train, y_test)
     all_results += test_random_forest(X_train, X_test, y_train, y_test)
     all_results += test_mlp(X_train, X_test, y_train, y_test)
+    all_results += test_decision_tree(X_train, X_test, y_train, y_test)
+    all_results += test_svm(X_train, X_test, y_train, y_test)
 
     df = pd.DataFrame(all_results)
 
