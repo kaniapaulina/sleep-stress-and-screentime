@@ -12,7 +12,7 @@
 
   Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
   Funkcja straty: Binary Cross-Entropy (Log Loss)
-  # --------------------------------------------------------------------
+========================================================================
 """
 
 import pandas as pd
@@ -20,9 +20,9 @@ import numpy as np
 
 pd.set_option('display.max_columns', None)
 
-# --------------------------------------------------------------------
+# ===
 # READING & PREPARING DATA
-# --------------------------------------------------------------------
+# ===
 data = pd.read_csv("../data/digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
@@ -46,9 +46,9 @@ X = data.drop('is_depressed', axis=1).values
 
 rows, cols = X.shape
 
-# --------------------------------------------------------------------
+# =====
 # NEURAL NETWORK: A masterclass
-# --------------------------------------------------------------------
+# =====
 class Mentally_Unwell_Prediction:
     """
     A multilayered neural network that binary classifies someones mental health status
@@ -196,9 +196,9 @@ class Mentally_Unwell_Prediction:
         cnt = np.sum(predict == y)
         return (cnt / len(y)) * 100
 
-# --------------------------------------------------------------------
+# =====
 # TRAINING THE MODEL
-# --------------------------------------------------------------------
+# =====
 def train(seperator=1600):
     X_train = X[:seperator]
     X_test = X[seperator:]
@@ -237,9 +237,9 @@ def train(seperator=1600):
 
     return model
 
-# --------------------------------------------------------------------
+# =====
 # TESTING THE MODEL on different data
-# --------------------------------------------------------------------
+# =====
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -276,69 +276,10 @@ def predict_new_users(model, new_data, original_df):
         status = "Unwell" if risk >= 0.5 else "Healthy"
         print(f"Test {i + 1}: Health -> Diagnose: {status}")
 
-# --------------------------------------------------------------------
-# PARAMETRIC TESTS - Grid Search
-# --------------------------------------------------------------------
-def test_classification_params():
-    learning_rates = [0.01, 0.005, 0.003, 0.001]
-    hidden_units_list = [64, 128, 256, 512]
-    batch_sizes = [16, 32, 64, 128]
 
-    X_train = X[:1600]
-    X_test = X[1600:]
-
-    y_train = y[:1600]
-    y_test = y[1600:]
-
-    results = []
-
-    for lr in learning_rates:
-        for hu in hidden_units_list:
-            for bs in batch_sizes:
-
-                print(f"\nTEST: lr={lr}, hidden={hu}, batch={bs}")
-
-                model = Mentally_Unwell_Prediction(hidden_units=hu)
-
-                model.train(
-                    X_train,
-                    y_train,
-                    iteration=1000,
-                    learning_rate=lr,
-                    batch_size=bs
-                )
-
-                pred = model.predict(X_test)
-                score = model.score(pred, y_test)
-
-                results.append({
-                    "learning rate":     lr,
-                    "hidden units":      hu,
-                    "batch size":        bs,
-                    "train accuracy":    score
-                })
-
-
-    df = pd.DataFrame(results)
-
-    print("\n=== RESULTS ===")
-    print(df.sort_values("accuracy", ascending=False))
-
-    best = df.loc[df['train accuracy'].idxmax()]
-    print(best[['learning rate', 'hidden units', 'batch size', 'train accuracy']].to_string(index=False))
-
-    df.to_csv("../test-results/classification/classification_param_tests.csv", index=False)
-    return df
-
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
 def main_func():
     clr = train()
     predict_new_users(clr, new_samples, real_data)
-
-    df_class_results = test_classification_params()
-    print(df_class_results.sort_values("accuracy", ascending=False).head(10))
 
 if __name__ == "__main__":
     main_func()
