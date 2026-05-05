@@ -166,7 +166,6 @@ def evaluate_classification_model(model, X_train, X_test, y_train, y_test):
     }
 
     return results
-
 def add_result(results, model_name, parameter_name, parameter_value, values):
     results.append({
         "model": model_name,
@@ -222,7 +221,6 @@ def compare_models(X_train, X_test, y_train, y_test):
 
         print(f"  {name:<30} | train: {values['train_accuracy']*100:.2f}%  test: {values['test_accuracy']*100:.2f}%")
         add_result(results, name, "default", "default", values=values)
-
 
 def test_logistic_regression(X_train, X_test, y_train, y_test):
     """

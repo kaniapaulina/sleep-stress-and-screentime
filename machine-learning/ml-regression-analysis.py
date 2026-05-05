@@ -412,17 +412,18 @@ def test_svm(X_train, X_test, y_train, y_test):
 
     return results
 
-
 def main():
     X_train, X_test, y_train, y_test = prepare_data()
-    find_best_parameter(X_train, X_test, y_train, y_test)
-    compare_models(X_train, X_test, y_train, y_test)
+    #find_best_parameter(X_train, X_test, y_train, y_test)
+    #compare_models(X_train, X_test, y_train, y_test)
 
     all_results = []
     all_results += test_linear_regression(X_train, X_test, y_train, y_test)
     all_results += test_knn(X_train, X_test, y_train, y_test)
     all_results += test_random_forest(X_train, X_test, y_train, y_test)
     all_results += test_mlp(X_train, X_test, y_train, y_test)
+    all_results += test_decision_tree(X_train, X_test, y_train, y_test)
+    all_results += test_svm(X_train, X_test, y_train, y_test)
 
     df = pd.DataFrame(all_results)
 
