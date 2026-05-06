@@ -1,0 +1,26 @@
+Tested Param,Value,Train Accuracy,Test Accuracy
+architecture,"[28, 1]",83.99375,85.525
+architecture,"[28, 64, 1]",82.61875,84.2
+architecture,"[28, 64, 32, 1]",82.38125,83.7
+architecture,"[28, 128, 64, 1]",84.5125,85.525
+activation_function,relu,83.9,85.2
+activation_function,tanh,88.55,89.5
+activation_function,sigmoid,80.8125,82.5
+activation_function,leaky_relu,84.38125,85.6
+learning_rate,0.01,85.15625,85.75
+learning_rate,0.005,82.53125,84.3
+learning_rate,0.001,79.475,80.875
+learning_rate,0.0005,76.95625,78.5
+batch_size,16,81.25625,82.9
+batch_size,32,84.3375,85.775
+batch_size,64,85.9125,86.575
+batch_size,128,86.35,87.325
+train/test seperator,1000,83.47,83.88
+train/test seperator,1200,83.61666666666667,83.8375
+train/test seperator,1500,83.69333333333333,85.78
+train/test seperator,1600,84.31875,85.275
+train/test seperator,1800,84.63333333333334,85.9
+iteration,200,81.9625,83.775
+iteration,500,84.275,85.425
+iteration,1000,86.30625,86.825
+iteration,2000,88.725,89.575
