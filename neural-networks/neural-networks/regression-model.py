@@ -13,7 +13,6 @@
   Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
   Funkcja straty: MSE (Mean Squared Error)
   Metryka: MAE (Mean Absolute Error) w godzinach
-  # --------------------------------------------------------------------
 """
 
 import pandas as pd
@@ -21,9 +20,9 @@ import numpy as np
 
 pd.set_option('display.max_columns', None)
 
-# --------------------------------------------------------------------
+# ===
 # READING & PREPARING DATA
-# --------------------------------------------------------------------
+# ===
 data = pd.read_csv("../data/digital_diet_mental_health.csv")
 data = data.sample(frac=1).reset_index(drop=True)
 
@@ -44,9 +43,9 @@ X = data.drop(columns='sleep_duration_hours').values
 
 rows, cols = X.shape
 
-# --------------------------------------------------------------------
+# ===
 # NEURAL NETWORK Definition
-# --------------------------------------------------------------------
+# ===
 class Sleep_Prediction:
     """
     A multilayer neural network for linear regression
@@ -176,9 +175,9 @@ class Sleep_Prediction:
     def score(self, predict, y):
         return np.mean(np.abs(predict - y))
 
-# --------------------------------------------------------------------
+# ===
 # TRAINING THE MODEL
-# --------------------------------------------------------------------
+# ===
 def train():
     X_train = X[:1600]
     X_test = X[1600:]
@@ -216,9 +215,9 @@ def train():
 
     return model
 
-# --------------------------------------------------------------------
+# =====
 # TESTING THE MODEL on different data
-# --------------------------------------------------------------------
+# =====
 import io
 
 csv_data = """user_id,age,gender,daily_screen_time_hours,phone_usage_hours,laptop_usage_hours,tablet_usage_hours,tv_usage_hours,social_media_hours,work_related_hours,entertainment_hours,gaming_hours,sleep_duration_hours,sleep_quality,mood_rating,stress_level,physical_activity_hours_per_week,location_type,mental_health_score,uses_wellness_apps,eats_healthy,caffeine_intake_mg_per_day,weekly_anxiety_score,weekly_depression_score,mindfulness_minutes_per_day
@@ -255,59 +254,6 @@ def predict_new_users(model, new_data, original_df):
     for i, hours in enumerate(predictions):
         print(f"User {i + 1}: Predicted {hours[0]:.2f} hours of sleep")
 
-# --------------------------------------------------------------------
-# PARAMETRIC TESTS - Grid Search
-# --------------------------------------------------------------------
-def test_regression_params():
-    learning_rates = [0.01, 0.008, 0.005, 0.001]
-    hidden_units_list = [64, 128, 256, 512]
-    batch_sizes = [16, 32, 64, 128]
-    seperator = [1000, 1400, 1600, 1900]
-
-    results = []
-
-    for lr in learning_rates:
-        for hu in hidden_units_list:
-            for bs in batch_sizes:
-
-                print(f"\nTEST: lr={lr}, hidden={hu}, batch={bs}")
-
-                model = Sleep_Prediction(hidden_units = hu)
-
-                # ZMIANA learning rate i batch size w train
-                def custom_train():
-                    X_train = X[:1600]
-                    X_test = X[1600:]
-
-                    y_train = y[:1600]
-                    y_test = y[1600:]
-
-                    model.train(X_train, y_train/10, X_test, y_test/10, iteration=1000, learning_rate=lr, batch_size=bs)
-
-                    pred = model.predict(X_test)
-                    score = model.score(pred, y_test)
-
-                    return score
-
-                score = custom_train()
-
-                results.append({
-                    "learning rate": lr,
-                    "hidden units": hu,
-                    "batch size": bs,
-                    "MAE": score
-                })
-
-    df = pd.DataFrame(results)
-    print("\n=== RESULTS ===")
-    print(df.sort_values("MAE"))
-
-    best = df.loc[df['MAE'].idxmax()]
-    print(best[['learning rate', 'hidden units', 'batch size', 'MAE']].to_string(index=False))
-
-    df.to_csv("../test-results/regression/regression_param_tests_results.csv", index=False)
-
-    return df
 
 # --------------------------------------------------------------------
 # --------------------------------------------------------------------

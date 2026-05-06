@@ -45,6 +45,7 @@ y = data['is_depressed'].values.reshape(2000, 1)
 X = data.drop('is_depressed', axis=1).values
 
 rows, cols = X.shape
+print(X.shape)
 
 # =====
 # NEURAL NETWORK: A masterclass

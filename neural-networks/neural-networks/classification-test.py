@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 def classification_model_test():
-    data = pd.read_csv(r"/neural-networks\data\digital_diet_mental_health.csv")
+    data = pd.read_csv(r"../data/digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
@@ -21,7 +21,7 @@ def classification_model_test():
     X = data.drop('is_depressed', axis=1).values
 
     class Mentally_Unwell_Prediction:
-        def __init__(self, layers=[29, 128, 64, 1], activation='relu'):
+        def __init__(self, layers=[28, 128, 64, 1], activation='relu'):
             self.weights = []
             self.velocity = []
             self.biases = []
@@ -68,7 +68,7 @@ def classification_model_test():
 
             last_z = np.dot(self.weights[-1].T, curr_a) + self.biases[-1]
             self.z.append(last_z)
-            self.a.append(last_z)
+            self.a.append(self.activation(last_z, 'sigmoid'))
             return self.a[-1]
 
 
@@ -78,13 +78,13 @@ def classification_model_test():
             loss =- np.sum(logprobs) / m
             return loss
 
-        def _backward_propagation(self, X, y):
+        def _backward_propagation(self, X_batch, y_batch):
             rows = X.shape[0]
             lambda_param = 0.001
             self.grads_w = [None] * len(self.weights)
             self.grads_b = [None] * len(self.biases)
 
-            dz = self.a[-1] - y.T
+            dz = self.a[-1] - y_batch.T
 
             for i in reversed(range(len(self.weights))):
                 self.grads_w[i] = (1 / rows) * np.dot(self.a[i], dz.T) + (lambda_param * self.weights[i])
@@ -142,7 +142,7 @@ def classification_model_test():
         base_lr = 0.01
         base_bs = 32
         base_sep = 1600
-        base_iter = 1000
+        base_iter = 500
 
         params_to_test = {
             "architecture": [
@@ -155,12 +155,11 @@ def classification_model_test():
             "iteration": [200, 500, 1000, 2000]
         }
 
+
         for param_name, values in params_to_test.items():
 
             for val in values:
-                train_errors = []
-                test_errors = []
-
+                print(f"Testing {param_name} : {val}")
                 arch = val if param_name == "architecture" else base_arch
                 act = val if param_name == "activation_function" else base_act
                 lr = val if param_name == "learning_rate" else base_lr
@@ -168,26 +167,32 @@ def classification_model_test():
                 sep = val if param_name == "train/test seperator" else base_sep
                 it = val if param_name == "iteration" else base_iter
 
-                X_train, X_test = X[:sep], X[sep:]
-                y_train, y_test = y[:sep], y[sep:]
+                repeat_train_acc = []
+                repeat_test_acc = []
 
-                model = Mentally_Unwell_Prediction(layers=arch, activation=act)
-                model.train(X_train, y_train, iteration=it, lr=lr, batch_size=bs)
+                for i in range(10):
+                    X_train, X_test = X[:sep], X[sep:]
+                    y_train, y_test = y[:sep], y[sep:]
 
-                train_mae = model.score(model.predict(X_train), y_train)
-                test_mae = model.score(model.predict(X_test), y_test)
+                    model = Mentally_Unwell_Prediction(layers=arch, activation=act)
+                    model.train(X_train, y_train, iteration=it, lr=lr, batch_size=bs)
 
-                train_errors.append(train_mae)
-                test_errors.append(test_mae)
+                    train_mae = model.score(model.predict(X_train), y_train)
+                    test_mae = model.score(model.predict(X_test), y_test)
+
+                    repeat_train_acc.append(train_mae)
+                    repeat_test_acc.append(test_mae)
 
                 results.append({
                     "Tested Param": param_name,
                     "Value": str(val),
-                    "Train Accuracy": train_errors,
-                    "Test Accuracy": test_errors,
+                    "Train Accuracy": np.mean(repeat_train_acc),
+                    "Test Accuracy": np.mean(repeat_test_acc),
                 })
 
         return pd.DataFrame(results)
 
     df = run_full_analysis()
-    df.to_csv(r"..\test-results\classification\singular_classification_param_tests_results.csv", index=False)
+    df.to_csv(r"../test-results/classification/param_tests_results.csv", index=False)
+
+classification_model_test()

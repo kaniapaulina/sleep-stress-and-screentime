@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 def regression_model_test():
-    data = pd.read_csv(r"/neural-networks\data\digital_diet_mental_health.csv")
+    data = pd.read_csv(r"../data/digital_diet_mental_health.csv")
     data = data.sample(frac=1).reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
@@ -11,6 +11,9 @@ def regression_model_test():
 
     data['stress_phone_interaction'] = data['stress_level'] * data['phone_usage_hours']
     data['total_digital_load'] = data['phone_usage_hours'] + data['laptop_usage_hours'] + data['gaming_hours']
+
+    y_min = data['sleep_duration_hours'].min()
+    y_max = data['sleep_duration_hours'].max()
 
     data = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0))
 
@@ -80,8 +83,6 @@ def regression_model_test():
             self.grads_w = [None] * len(self.weights)
             self.grads_b = [None] * len(self.biases)
 
-            # Błąd na wyjściu (dla regresji MSE: predict - y)
-            # self.a[-1] to wynik forwardu, self.a[i] to wejście do i-tej warstwy
             dz = self.a[-1] - y.T
 
             for i in reversed(range(len(self.weights))):
@@ -108,7 +109,7 @@ def regression_model_test():
 
         def predict(self, X):
             y_hat_scaled = self._forward_propagation(X)
-            return np.array(y_hat_scaled.T) * 10
+            return y_hat_scaled.T * (y_max - y_min) + y_min
 
         def score(self, predict, y):
             return np.mean(np.abs(predict - y))
@@ -131,11 +132,12 @@ def regression_model_test():
     def run_full_analysis():
         results = []
 
-        base_arch = [29, 128, 64, 1]
+        base_arch = [29, 64, 32, 1]
         base_act = 'relu'
-        base_lr = 0.005
+        base_lr = 0.01
         base_bs = 32
         base_sep = 1600
+        base_iter = 500
 
         params_to_test = {
             "architecture": [
@@ -144,40 +146,50 @@ def regression_model_test():
             "activation_function": ['relu', 'tanh', 'sigmoid', 'leaky_relu'],
             "learning_rate": [0.01, 0.005, 0.001, 0.0005],
             "batch_size": [16, 32, 64, 128],
-            "train/test seperator": [1000, 1200, 1500, 1600, 1800]
+            "train/test seperator": [1000, 1200, 1500, 1600, 1800],
+            "iteration": [200, 500, 1000, 2000]
         }
 
         for param_name, values in params_to_test.items():
 
             for val in values:
-                train_errors = []
-                test_errors = []
-
+                print(f"Testing {param_name} : {val}")
                 arch = val if param_name == "architecture" else base_arch
                 act = val if param_name == "activation_function" else base_act
                 lr = val if param_name == "learning_rate" else base_lr
                 bs = val if param_name == "batch_size" else base_bs
                 sep = val if param_name == "train/test seperator" else base_sep
+                it = val if param_name == "iteration" else base_iter
 
-                X_train, X_test = X[:sep], X[sep:]
-                y_train, y_test = y[:sep], y[sep:]
+                repeat_train_mae = []
+                repeat_test_mae = []
 
-                model = Sleep_Prediction(layers=arch, activation=act)
-                model.train(X_train, y_train / 10, iteration=1000, lr=lr, batch_size=bs)
 
-                train_mae = model.score(model.predict(X_train), y_train)
-                test_mae = model.score(model.predict(X_test), y_test)
+                for i in range(10):
+                    X_train, X_test = X[:sep], X[sep:]
+                    y_train, y_test = y[:sep], y[sep:]
 
-                train_errors.append(train_mae)
-                test_errors.append(test_mae)
+                    y_train_unscaled = y_train * (y_max - y_min) + y_min
+                    y_test_unscaled = y_test * (y_max - y_min) + y_min
+
+                    model = Sleep_Prediction(layers=arch, activation=act)
+                    model.train(X_train, y_train, iteration=it, lr=lr, batch_size=bs)
+
+                    train_mae = model.score(model.predict(X_train), y_train_unscaled)
+                    test_mae = model.score(model.predict(X_test), y_test_unscaled     )
+
+                    repeat_train_mae.append(train_mae)
+                    repeat_test_mae.append(test_mae)
 
                 results.append({
                     "Tested Param": param_name,
                     "Value": str(val),
-                    "Train MAE (Avg)": train_errors,
-                    "Test MAE (Avg)": test_errors,
+                    "Train MAE (Avg)": np.mean(repeat_train_mae),
+                    "Test MAE (Avg)": np.mean(repeat_test_mae),
                 })
         return pd.DataFrame(results)
 
     df = run_full_analysis()
-    df.to_csv(r"..\test-results\regression\singular_regression_param_tests_results.csv", index=False)
+    df.to_csv(r"../test-results/regression/param_tests_results.csv", index=False)
+
+regression_model_test()
