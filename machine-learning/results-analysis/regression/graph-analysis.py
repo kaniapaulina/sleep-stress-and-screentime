@@ -13,7 +13,14 @@ def create_graph(df, model, param):
         ].copy()
 
     data["parameter_value"] = data["parameter_value"].fillna("None")
-    data = data.sort_values("parameter_value")
+
+    data["Value_Numeric"] = pd.to_numeric(data["parameter_value"], errors='coerce')
+
+    if data["Value_Numeric"].notna().all():
+        data = data.sort_values("Value_Numeric")
+    else:
+        data = data.sort_values("parameter_value")
+
 
     x = data["parameter_value"]
     train = data["train_mae"]

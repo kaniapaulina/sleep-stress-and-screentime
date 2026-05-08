@@ -144,7 +144,6 @@ def find_best_parameter(X_train, X_test, y_train, y_test):
         print(f"\n{name} Best Params: {result['best_params']}")
     print("=" * 60)
 
-
 def evaluate_regression_model(model, X_train, X_test, y_train, y_test):
     model.fit(X_train, y_train)
 
@@ -220,7 +219,6 @@ def compare_models(X_train, X_test, y_train, y_test):
 
         print(f"  {name:<30} | Train MAE: {values['train_mae']:.4f} h | Test MAE: {values['test_mae']:.4f} h")
         add_result(results, name, "default", "default",  values)
-
 
 def test_linear_regression(X_train, X_test, y_train, y_test):
     """
