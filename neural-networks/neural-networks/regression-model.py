@@ -6,8 +6,8 @@
 
   Architektura:
     Warstwa wejściowa: 29 cech (z feature engineeringiem)
-    Warstwa ukryta 1: 128 neuronów (Leaky ReLU)
-    Warstwa ukryta 2: 64 neurony (Leaky ReLU)
+    Warstwa ukryta 1: 64 neuronów (Leaky ReLU)
+    Warstwa ukryta 2: 32 neurony (Leaky ReLU)
     Warstwa wyjściowa: neuron (liniowa — wartość ciągła)
 
   Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
@@ -52,7 +52,7 @@ class Sleep_Prediction:
     """
 
     def __init__(self, hidden_units=128):
-        self.input = cols
+        self.input = 29
         self.output = 1
         self.hidden_units = hidden_units
 
@@ -60,6 +60,7 @@ class Sleep_Prediction:
         self.w1 = np.random.randn(self.input, self.hidden_units)* np.sqrt(2. / self.input)
         self.w2 = np.random.randn(self.hidden_units, 64)* np.sqrt(2. / self.hidden_units)
         self.w3 = np.random.randn(64, self.output)* np.sqrt(2. / 64 )
+
 
         # Velocity
         self.v1 = np.zeros_like(self.w1)
@@ -71,15 +72,25 @@ class Sleep_Prediction:
         self.b2 = np.zeros((64, 1))
         self.b3 = np.zeros((self.output, 1))
 
+
     # === Foward Propagation
     # Foward move from input layer through hidden layers, multiplying neuron by weight
-    def _forward_propagation(self, X):
+    def _forward_propagation(self, X, training=True):
+        # Layer 1
         self.z2 = np.dot(self.w1.T, X.T) + self.b1
         self.a2 = self.ReLU(self.z2)
+        if training:
+            self.m1 = (np.random.rand(*self.a2.shape) < 0.8)
+            self.a2 = (self.a2 * self.m1) / 0.9
 
+        # Layer 2
         self.z3 = np.dot(self.w2.T, self.a2) + self.b2
         self.a3 = self.ReLU(self.z3)
+        if training:
+            self.m2 = (np.random.rand(*self.a3.shape) < 0.9)
+            self.a3 = (self.a3 * self.m2) / 0.9
 
+        # Layer 3
         self.z4 = np.dot(self.w3.T, self.a3) + self.b3
         self.a4 = self.z4
 
@@ -105,29 +116,33 @@ class Sleep_Prediction:
     # Calculating the gradient moving backwards
     def _backward_propagation(self, X, y):
         predict = self._forward_propagation(X)
+
         rows = X.shape[0]
 
-        # Output Layer (Sigmoid + BCE)
+        # Output Layer
         dz4 = predict - y.T
         self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T)
         self.db3 = (1 / rows) * np.sum(dz4, axis=1, keepdims=True)
 
         # Hidden Layer 2 (ReLU)
         dz3 = np.dot(self.w3, dz4) * self.ReLU_prime(self.z3)
+        dz3 = (dz3 * self.m2) / 0.9
         self.dw2 = (1 / rows) * np.dot(self.a2, dz3.T)
         self.db2 = (1 / rows) * np.sum(dz3, axis=1, keepdims=True)
 
         # Hidden Layer 1 (ReLU)
         dz2 = np.dot(self.w2, dz3) * self.ReLU_prime(self.z2)
+        dz2 = (dz2 * self.m1) / 0.9
         self.dw1 = (1 / rows) * np.dot(X.T, dz2.T)
         self.db1 = (1 / rows) * np.sum(dz2, axis=1, keepdims=True)
+
 
     def ReLU_prime(self, z):
         return np.where(z > 0, 1, 0.01) # Leaky ReLu
 
     # === Update Parameters
     # SGD Momentum
-    def _update(self, learning_rate=0.01):
+    def _update(self, learning_rate=0.001):
         beta = 0.9
         self.v1 = beta * self.v1 + (1-beta) * self.dw1
         self.w1 = self.w1 - learning_rate * self.v1
@@ -142,7 +157,7 @@ class Sleep_Prediction:
         self.b3 = self.b3 - learning_rate * self.db3
 
     # === TRAINING
-    def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.005, batch_size=16):
+    def train(self, X_train, y_train, X_test, y_test, iteration=1000, learning_rate=0.01, batch_size=32):
         rows = X_train.shape[0]
 
         for i in range(iteration):
@@ -158,19 +173,20 @@ class Sleep_Prediction:
 
             if i % 100 == 0:
                 full_y_hat = self._forward_propagation(X_train)
-                train_mae = np.mean(np.abs(full_y_hat.T -  y_train))*10
+                train_mae = np.mean(np.abs(full_y_hat.T -  y_train))
 
                 full_y_test = self._forward_propagation(X_test)
-                test_mae = np.mean(np.abs(full_y_test.T - y_test))*10
+                test_mae = np.mean(np.abs(full_y_test.T - y_test))
 
                 print(f"Iter {i} | Train MAE: {train_mae:.4f} | Test MAE: {test_mae:.4f}")
 
-            if i % 100 == 0:
-                learning_rate *= 0.8
+            if i % 200 == 0:
+                learning_rate *= 0.9
 
     def predict(self, X):
         y_hat_scaled = self._forward_propagation(X)
-        return np.maximum(0, np.array(y_hat_scaled.T)*10)
+        return np.maximum(0, np.array(y_hat_scaled.T))
+
 
     def score(self, predict, y):
         return np.mean(np.abs(predict - y))
@@ -179,11 +195,26 @@ class Sleep_Prediction:
 # TRAINING THE MODEL
 # ===
 def train():
-    X_train = X[:1600]
-    X_test = X[1600:]
+    y_raw = real_data['sleep_duration_hours'].values.reshape(-1, 1)
+    X_raw = real_data.drop(columns='sleep_duration_hours').values
 
-    y_train = y[:1600]
-    y_test = y[1600:]
+    sep = 1600
+    X_train_raw, X_test_raw = X_raw[:sep], X_raw[sep:]
+    y_train_raw, y_test_raw = y_raw[:sep], y_raw[sep:]
+
+    x_min, x_max = X_train_raw.min(axis=0), X_train_raw.max(axis=0)
+    y_min, y_max = y_train_raw.min(), y_train_raw.max()
+
+    x_range = np.where((x_max - x_min) == 0, 1, x_max - x_min)
+    y_range = (y_max - y_min) if (y_max - y_min) != 0 else 1
+
+    X_train = (X_train_raw - x_min) / x_range
+    X_test = (X_test_raw - x_min) / x_range
+
+    y_train = (y_train_raw - y_min) / y_range
+    y_test = (y_test_raw - y_min) / y_range
+
+    y_range = y_max - y_min
 
     print("=" * 60)
     print("REGRESSION MODEL TRAINING")
@@ -191,25 +222,25 @@ def train():
 
     model = Sleep_Prediction()
 
-    model.train(X_train, y_train/10, X_test, y_test/10)
+    model.train(X_train, y_train, X_test, y_test)
     pre_y = model.predict(X_test)
     score = model.score(pre_y, y_test)
+    score_hours = model.score(pre_y*y_range, y_test*y_range)
 
-    print('=== SCORE: ', score)
+    print('=== MAE: ', score)
+    print("=== SCORE: ", round(score_hours, 2))
 
     def show_comparison(model, X_test, y_test):
         predictions = model.predict(X_test)
         comparison = pd.DataFrame({
-            'Actual Hours': y_test.flatten().round(2),
-            'Predicted Hours': predictions.flatten().round(2)
+            'Actual': y_test.flatten()*y_range.round(0),
+            'Predicted': predictions.flatten()*y_range.round(2)
         })
-        comparison['Error (Minutes)'] = (np.abs(comparison['Actual Hours'] - comparison['Predicted Hours']) * 60).round(
-            0)
-
+        comparison['Error'] = (np.abs(comparison['Actual'] - comparison['Predicted']))
         print("\n=== ACTUAL VS PREDICTED ===")
-        print(comparison.tail(10)*10)
+        print(comparison.tail(10))
 
-        print(f"\nAverage Error: {comparison['Error (Minutes)'].mean():.1f} minutes")
+        print(f"\nAverage Error: {comparison['Error'].mean():.1f} off")
 
     show_comparison(model, X_test, y_test)
 
@@ -253,6 +284,7 @@ def predict_new_users(model, new_data, original_df):
     print("\n=== FINAL CORRECTED PREDICTIONS ===")
     for i, hours in enumerate(predictions):
         print(f"User {i + 1}: Predicted {hours[0]:.2f} hours of sleep")
+        print(f"{i+1}. {hours} score")
 
 
 # --------------------------------------------------------------------
@@ -260,10 +292,7 @@ def predict_new_users(model, new_data, original_df):
 # --------------------------------------------------------------------
 def main_func():
     clr = train()
-    predict_new_users(clr, new_samples, real_data)
-
-    df_results = test_regression_params()
-    print(df_results.sort_values("MAE").head(10))
+    #predict_new_users(clr, new_samples, real_data)
 
 
 if __name__ == "__main__":

@@ -5,9 +5,8 @@
   Cel: Na podstawie czasu przed ekranem, snu i innych czynników klasyfikator decyduje, czy dana osoba jest psychicznie "zdrowa" czy "niezdrowa" (is_depressed: 0 lub 1).
 
   Architektura:
-    Warstwa wejściowa: 27 cech
-    Warstwa ukryta 1: 128 neuronów (ReLU)
-    Warstwa ukryta 2: 64 neurony (ReLU)
+    Warstwa wejściowa: 28 cech
+    Warstwa ukryta 1: 32 neuronów (ReLU)
     Warstwa wyjściowa: 1 neuron (Sigmoid → prawdopodobieństwo 0-1)
 
   Optymalizacja: SGD z mini-batchami + Momentum (β = 0.9)
@@ -55,42 +54,35 @@ class Mentally_Unwell_Prediction:
     A multilayered neural network that binary classifies someones mental health status
     """
     # === Initialize the model
-    def __init__(self, hidden_units = 128):
+    def __init__(self, hidden_units = 32):
         self.input = cols
         self.output = 1
         self.hidden_units = hidden_units
 
         # Weights
         self.w1 = np.random.randn(self.input, self.hidden_units) * np.sqrt(2. / self.input)
-        self.w2 = np.random.randn(self.hidden_units, 64) * np.sqrt(2. / self.hidden_units)
-        self.w3 = np.random.randn(64, self.output) * np.sqrt(2. / 64)
+        self.w2 = np.random.randn(self.hidden_units, self.output) * np.sqrt(2. / self.hidden_units)
 
-        # Velocity
+        # Velocity (Momentum)
         self.v1 = np.zeros_like(self.w1)
         self.v2 = np.zeros_like(self.w2)
-        self.v3 = np.zeros_like(self.w3)
 
-        # Biases - initialized to 0
+        # Biases
         self.b1 = np.zeros((self.hidden_units, 1))
-        self.b2 = np.zeros((64, 1))
-        self.b3 = np.zeros((self.output, 1))
+        self.b2 = np.zeros((self.output, 1))
 
     # === Foward Propagation
     # Foward move from input layer through hidden layers, multiplying neuron by weight
     def _forward_propagation(self, X):
-        # Layer 1 (from input to hidden layer 1)
+        # Layer 1: Input -> Hidden
         self.z2 = np.dot(self.w1.T, X.T) + self.b1
         self.a2 = self._ReLU(self.z2)
 
-        # Layer 2 (from hidden layer 1 to hidden layer 2)
+        # Layer 2: Hidden -> Output
         self.z3 = np.dot(self.w2.T, self.a2) + self.b2
-        self.a3 = self._ReLU(self.z3)
+        self.a3 = self._sigmoid(self.z3)
 
-        # Output layer (Sigmoid for binary classification)
-        self.z4 = np.dot(self.w3.T, self.a3) + self.b3
-        self.a4 = self._sigmoid(self.z4)
-
-        return self.a4
+        return self.a3
 
     # === Activation Function
     # Rectified Linear Unit (hidden layers)
@@ -98,6 +90,9 @@ class Mentally_Unwell_Prediction:
 
     # Sigmoid (output layer)
     def _sigmoid(self, z): return 1 / (1 + np.exp(-z))
+
+    # Tanh
+    def _tanh(self, Z): return np.tanh(Z)
 
     # === Loss Function
     # Binary Cross Entropy (Log Loss)
@@ -107,8 +102,10 @@ class Mentally_Unwell_Prediction:
         The lower the result, the better the model
         """
         m = y.shape[0]
-        logprobs = np.multiply(np.log(predict), y) + np.multiply((1 - y), np.log(1 - predict))
-        loss =- np.sum(logprobs) / m
+        epsilon = 1e-15  # unikamy log(0)
+        predict = np.clip(predict, epsilon, 1 - epsilon)
+        logprobs = np.multiply(np.log(predict), y.T) + np.multiply((1 - y.T), np.log(1 - predict))
+        loss = - np.sum(logprobs) / m
         return loss
 
     # === Backwards Propagation
@@ -122,47 +119,42 @@ class Mentally_Unwell_Prediction:
         rows = X.shape[0]
 
         # Output Layer (Sigmoid + BCE)
-        dz4 = predict - y.T
+        dz3 = predict - y.T
 
-        self.dw3 = (1 / rows) * np.dot(self.a3, dz4.T)
-        self.db3 = (1 / rows) * np.sum(dz4, axis=1, keepdims=True)
-
-        # Hidden Layer 2 (ReLU)
-        dz3 = np.dot(self.w3, dz4) * self.ReLU_prime(self.z3)
+        # Gradienty dla w2 (warstwa wyjściowa)
         self.dw2 = (1 / rows) * np.dot(self.a2, dz3.T)
         self.db2 = (1 / rows) * np.sum(dz3, axis=1, keepdims=True)
 
-        # Hidden Layer 1 (ReLU)
+        # Błąd na warstwie ukrytej (Hidden Layer)
         dz2 = np.dot(self.w2, dz3) * self.ReLU_prime(self.z2)
+
+        # Gradienty dla w1 (warstwa wejściowa)
         self.dw1 = (1 / rows) * np.dot(X.T, dz2.T)
         self.db1 = (1 / rows) * np.sum(dz2, axis=1, keepdims=True)
 
     def ReLU_prime(self, z): return (z>0).astype(float)
     def sigmoid_prime(self, z): return self._sigmoid(z) * (1 - self._sigmoid(z))
+    def _tanh_prime(self, Z): return 1 - np.tanh(Z) ** 2
 
     # === Update Parameters
     # SGD Momentum
-    def _update(self, learning_rate=0.01):
+    def _update(self, learning_rate=0.005):
         """
         Momentum smoothes out the gradient rise
         v = β·v + (1-β)·grad
         w = w - lr·v
         """
         beta = 0.9
-        self.v1 = beta * self.v1 + (1-beta) * self.dw1
-        self.w1 = self.w1 - learning_rate * self.v1
-        self.b1 = self.b1 - learning_rate * self.db1
+        self.v1 = beta * self.v1 + (1 - beta) * self.dw1
+        self.w1 -= learning_rate * self.v1
+        self.b1 -= learning_rate * self.db1
 
         self.v2 = beta * self.v2 + (1 - beta) * self.dw2
-        self.w2 = self.w2 - learning_rate * self.v2
-        self.b2 = self.b2 - learning_rate * self.db2
-
-        self.v3 = beta * self.v3 + (1 - beta) * self.dw3
-        self.w3 = self.w3 - learning_rate * self.v3
-        self.b3 = self.b3 - learning_rate * self.db3
+        self.w2 -= learning_rate * self.v2
+        self.b2 -= learning_rate * self.db2
 
     # === TRAINING
-    def train(self, X_train, y_train, iteration=1000, learning_rate=0.001, batch_size=16):
+    def train(self, X_train, y_train, iteration=1000, learning_rate=0.005, batch_size=16):
         rows = X_train.shape[0]
 
         for i in range(iteration):
@@ -181,7 +173,7 @@ class Mentally_Unwell_Prediction:
                 predictions = (full_y_hat.T > 0.5).astype(float)
                 accuracy = np.mean(predictions == y_train)
 
-                print(f"Iter {i} | Loss: {self._loss(full_y_hat, y):.4f} | Accuracy: {accuracy * 100:.2f}%")
+                print(f"Iter {i} | Loss: {self._loss(full_y_hat, y_train):.4f} | Accuracy: {accuracy * 100:.2f}%")
 
             if i % 200 == 0:
                 learning_rate *= 0.95

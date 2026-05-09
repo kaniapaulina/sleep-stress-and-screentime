@@ -3,7 +3,8 @@ import numpy as np
 
 def regression_model_test():
     data = pd.read_csv(r"../data/digital_diet_mental_health.csv")
-    data = data.sample(frac=1).reset_index(drop=True)
+    #data = (data.sample(frac=1)
+    data = data.reset_index(drop=True)
 
     data = data.drop('user_id', axis=1)
     data = pd.get_dummies(data, columns=['gender', 'location_type'])
@@ -12,8 +13,7 @@ def regression_model_test():
     data['stress_phone_interaction'] = data['stress_level'] * data['phone_usage_hours']
     data['total_digital_load'] = data['phone_usage_hours'] + data['laptop_usage_hours'] + data['gaming_hours']
 
-    y_min = data['sleep_duration_hours'].min()
-    y_max = data['sleep_duration_hours'].max()
+    real_data = data.copy()
 
     data = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0))
 
@@ -21,12 +21,14 @@ def regression_model_test():
     X = data.drop(columns='sleep_duration_hours').values
 
     class Sleep_Prediction:
-        def __init__(self, layers=[29, 128, 64, 1], activation='relu'):
+        def __init__(self, layers, activation='relu', keep_prob=0.9):
             self.weights = []
             self.velocity = []
             self.biases = []
+            self.masks = []
 
             self.act = activation
+            self.keep_prob = keep_prob
             self.a = []
             self.z = []
 
@@ -55,14 +57,23 @@ def regression_model_test():
             if type == 'leaky_relu': return np.where(Z > 0, 1, 0.01)
             return 1
 
-        def _forward_propagation(self, X):
+        def _forward_propagation(self, X, training=True):
             self.a = [X.T]
             self.z = []
+            self.masks = []
             curr_a = X.T
 
             for i in range(len(self.weights) - 1):
                 curr_z = np.dot(self.weights[i].T, curr_a) + self.biases[i]
                 curr_a = self.activation(curr_z, self.act)
+
+                if training:
+                    mask = (np.random.rand(*curr_a.shape) < self.keep_prob)
+                    curr_a = (curr_a * mask) / self.keep_prob
+                    self.masks.append(mask)
+                else:
+                    self.masks.append(None)
+
                 self.z.append(curr_z)
                 self.a.append(curr_a)
 
@@ -91,6 +102,8 @@ def regression_model_test():
 
                 if i > 0:
                     dz = np.dot(self.weights[i], dz) * self.activation_prime(self.z[i - 1], self.act)
+                    if self.masks[i - 1] is not None:
+                        dz = (dz * self.masks[i - 1]) / self.keep_prob
 
         def _update(self, lr, beta=0.9):
             for i in range(len(self.weights)):
@@ -108,46 +121,34 @@ def regression_model_test():
                     self._update(lr)
 
         def predict(self, X):
-            y_hat_scaled = self._forward_propagation(X)
-            return y_hat_scaled.T * (y_max - y_min) + y_min
+            y_hat_scaled = self._forward_propagation(X, training=False)
+            return np.maximum(0, np.array(y_hat_scaled.T))
 
         def score(self, predict, y):
             return np.mean(np.abs(predict - y))
 
-    def train(sep, it, lr, bs):
-        X_train = X[:sep]
-        X_test = X[sep:]
-
-        y_train = y[:sep]
-        y_test = y[sep:]
-
-        clr = Sleep_Prediction()
-
-        clr.train(X_train, y_train, it, lr, bs)
-        pre_y = clr.predict(X_test)
-        score = clr.score(pre_y, y_test)
-
-        return score
 
     def run_full_analysis():
         results = []
 
         base_arch = [29, 64, 32, 1]
         base_act = 'relu'
-        base_lr = 0.01
+        base_lr = 0.005
         base_bs = 32
         base_sep = 1600
-        base_iter = 500
+        base_iter = 400
+        base_prob = 0.9
 
         params_to_test = {
             "architecture": [
-                [29, 1], [29, 64, 1], [29, 64, 32, 1], [29, 128, 64, 1],[29, 128, 64, 32, 1]
+                [29, 1], [29, 32, 1], [29, 64, 1], [29, 64, 32, 1], [29, 128, 64, 1],[29, 128, 64, 32, 1]
             ],
             "activation_function": ['relu', 'tanh', 'sigmoid', 'leaky_relu'],
             "learning_rate": [0.01, 0.005, 0.001, 0.0005],
             "batch_size": [16, 32, 64, 128],
-            "train/test seperator": [1000, 1200, 1500, 1600, 1800],
-            "iteration": [200, 500, 1000, 2000]
+            "seperator": [1000, 1200, 1500, 1600, 1800],
+            "iteration": [200, 500, 1000, 2000],
+            "dropout_probability": [1, 0.9, 0.8, 0.5]
         }
 
         for param_name, values in params_to_test.items():
@@ -158,38 +159,59 @@ def regression_model_test():
                 act = val if param_name == "activation_function" else base_act
                 lr = val if param_name == "learning_rate" else base_lr
                 bs = val if param_name == "batch_size" else base_bs
-                sep = val if param_name == "train/test seperator" else base_sep
+                sep = val if param_name == "seperator" else base_sep
                 it = val if param_name == "iteration" else base_iter
+                prob = val if param_name == "dropout_probability" else base_prob
 
                 repeat_train_mae = []
                 repeat_test_mae = []
 
-
                 for i in range(10):
-                    X_train, X_test = X[:sep], X[sep:]
-                    y_train, y_test = y[:sep], y[sep:]
+                    y_raw = real_data['sleep_duration_hours'].values.reshape(-1, 1)
+                    X_raw = real_data.drop(columns='sleep_duration_hours').values
 
-                    y_train_unscaled = y_train * (y_max - y_min) + y_min
-                    y_test_unscaled = y_test * (y_max - y_min) + y_min
+                    sep = sep
+                    X_train_raw, X_test_raw = X_raw[:sep], X_raw[sep:]
+                    y_train_raw, y_test_raw = y_raw[:sep], y_raw[sep:]
 
-                    model = Sleep_Prediction(layers=arch, activation=act)
+                    x_min, x_max = X_train_raw.min(axis=0), X_train_raw.max(axis=0)
+                    y_min, y_max = y_train_raw.min(), y_train_raw.max()
+
+                    x_range = np.where((x_max - x_min) == 0, 1, x_max - x_min)
+                    y_range = (y_max - y_min) if (y_max - y_min) != 0 else 1
+
+                    X_train = (X_train_raw - x_min) / x_range
+                    X_test = (X_test_raw - x_min) / x_range
+
+                    y_train = (y_train_raw - y_min) / y_range
+                    y_test = (y_test_raw - y_min) / y_range
+
+                    model = Sleep_Prediction(layers=arch, activation=act, keep_prob=prob)
                     model.train(X_train, y_train, iteration=it, lr=lr, batch_size=bs)
 
-                    train_mae = model.score(model.predict(X_train), y_train_unscaled)
-                    test_mae = model.score(model.predict(X_test), y_test_unscaled     )
+                    train_mae = model.score(model.predict(X_train), y_train)
+                    test_mae = model.score(model.predict(X_test), y_test)
 
                     repeat_train_mae.append(train_mae)
                     repeat_test_mae.append(test_mae)
 
+                    y_range = y_max - y_min
+
+                print(np.mean(repeat_train_mae))
+                print(round(np.mean(repeat_train_mae)*y_range, 2))
+
                 results.append({
                     "Tested Param": param_name,
                     "Value": str(val),
-                    "Train MAE (Avg)": np.mean(repeat_train_mae),
-                    "Test MAE (Avg)": np.mean(repeat_test_mae),
+                    "Train MAE": np.mean(repeat_train_mae),
+                    "Test MAE": np.mean(repeat_test_mae),
+                    "Train Error": round(np.mean(repeat_train_mae)*y_range, 2),
+                    "Test Error":  round(np.mean(repeat_test_mae)*y_range, 2)
                 })
+
         return pd.DataFrame(results)
 
     df = run_full_analysis()
-    df.to_csv(r"../test-results/regression/param_tests_results.csv", index=False)
+    df.to_csv(r"../test-results/regression/param_tests_results_new.csv", index=False)
 
 regression_model_test()

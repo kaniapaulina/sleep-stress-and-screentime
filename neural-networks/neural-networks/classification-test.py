@@ -21,7 +21,7 @@ def classification_model_test():
     X = data.drop('is_depressed', axis=1).values
 
     class Mentally_Unwell_Prediction:
-        def __init__(self, layers=[28, 128, 64, 1], activation='relu'):
+        def __init__(self, layers, activation='relu'):
             self.weights = []
             self.velocity = []
             self.biases = []
@@ -79,7 +79,7 @@ def classification_model_test():
             return loss
 
         def _backward_propagation(self, X_batch, y_batch):
-            rows = X.shape[0]
+            rows = X_batch.shape[0]
             lambda_param = 0.001
             self.grads_w = [None] * len(self.weights)
             self.grads_b = [None] * len(self.biases)
@@ -101,7 +101,7 @@ def classification_model_test():
 
         def train(self, X_train, y_train, iteration=1000, lr=0.005, batch_size=32):
             for _ in range(iteration):
-                idx = np.random.permutation(X_train.shape[0])
+                idx = np .random.permutation(X_train.shape[0])
                 X_s, y_s = X_train[idx], y_train[idx]
                 for s in range(0, X_train.shape[0], batch_size):
                     self._forward_propagation(X_s[s:s + batch_size])
@@ -137,21 +137,21 @@ def classification_model_test():
     def run_full_analysis():
         results = []
 
-        base_arch = [28, 128, 64, 1]
+        base_arch = [28, 32, 1]
         base_act = 'relu'
-        base_lr = 0.01
+        base_lr = 0.005
         base_bs = 32
         base_sep = 1600
         base_iter = 500
 
         params_to_test = {
             "architecture": [
-                [28, 1], [28, 64, 1], [28, 64, 32, 1], [28, 128, 64, 1],
+                [28, 1], [28, 32, 1], [28, 64, 1], [28, 64, 32, 1], [28, 128, 64, 1],
             ],
             "activation_function": ['relu', 'tanh', 'sigmoid', 'leaky_relu'],
             "learning_rate": [0.01, 0.005, 0.001, 0.0005],
             "batch_size": [16, 32, 64, 128],
-            "train/test seperator": [1000, 1200, 1500, 1600, 1800],
+            "seperator": [1000, 1200, 1500, 1600, 1800],
             "iteration": [200, 500, 1000, 2000]
         }
 
@@ -164,7 +164,7 @@ def classification_model_test():
                 act = val if param_name == "activation_function" else base_act
                 lr = val if param_name == "learning_rate" else base_lr
                 bs = val if param_name == "batch_size" else base_bs
-                sep = val if param_name == "train/test seperator" else base_sep
+                sep = val if param_name == "seperator" else base_sep
                 it = val if param_name == "iteration" else base_iter
 
                 repeat_train_acc = []
