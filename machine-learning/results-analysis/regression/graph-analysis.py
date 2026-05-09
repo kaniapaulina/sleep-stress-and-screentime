@@ -4,7 +4,7 @@ import os
 
 pd.set_option('display.max_columns', None)
 
-results_df = pd.read_csv("../../test-results/regression/regression_comparison.csv")
+results_df = pd.read_csv("../../test-results/regression/regression_comparison_new.csv")
 
 def create_graph(df, model, param):
     data = df[

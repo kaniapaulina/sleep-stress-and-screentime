@@ -217,7 +217,7 @@ def compare_models(X_train, X_test, y_train, y_test):
     for name, model in models.items():
         values = evaluate_regression_model(model, X_train, X_test, y_train, y_test)
 
-        print(f"  {name:<30} | Train MAE: {values['train_mae']:.4f} h | Test MAE: {values['test_mae']:.4f} h")
+        print(f"  {name:<30} | Train MAE: {values['train_mae']:.4f} | Test MAE: {values['test_mae']:.4f}")
         add_result(results, name, "default", "default",  values)
 
 def test_linear_regression(X_train, X_test, y_train, y_test):
@@ -413,7 +413,7 @@ def test_svm(X_train, X_test, y_train, y_test):
 def main():
     X_train, X_test, y_train, y_test = prepare_data()
     #find_best_parameter(X_train, X_test, y_train, y_test)
-    #compare_models(X_train, X_test, y_train, y_test)
+    compare_models(X_train, X_test, y_train, y_test)
 
     all_results = []
     all_results += test_linear_regression(X_train, X_test, y_train, y_test)
